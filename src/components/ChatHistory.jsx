@@ -22,7 +22,7 @@ const ChatHistory = () => {
 
   const handleSpeakerClick = (content) => {
     console.log("Play audio for:", content);
-    // Integrate your TTS or audio functionality here.
+    // Place your TTS logic here.
   };
 
   return (
@@ -32,35 +32,27 @@ const ChatHistory = () => {
           let prefix = "";
           let content = msg.content;
           const newlineIndex = msg.content.indexOf("\n");
-          // If a newline is found within the first 20 characters, split the content.
           if (newlineIndex !== -1 && newlineIndex < 20) {
             prefix = msg.content.substring(0, newlineIndex);
             content = msg.content.substring(newlineIndex + 1);
           }
+
           return (
-            <div key={index} className="message-container assistant-align">
-              {prefix && (
-                <div className="message-bar-left">
-                  {prefix}
-                </div>
-              )}
-              <div className="message assistant-message">
-                {content}
-                <button
-                  className="speaker-button"
-                  onClick={() => handleSpeakerClick(content)}
-                >
-                  <img src={speakerIcon} alt="Speaker" />
-                </button>
-              </div>
+            <div key={index} className="message-container assistant-align hover-group">
+              {prefix && <div className="message-bar-left">{prefix}</div>}
+              <div className="message assistant-message">{content}</div>
+              <button
+                className="speaker-button-below"
+                onClick={() => handleSpeakerClick(content)}
+              >
+                <img src={speakerIcon} alt="Speaker" />
+              </button>
             </div>
           );
         } else {
           return (
             <div key={index} className="message-container user-align">
-              <div className="message user-message">
-                {msg.content}
-              </div>
+              <div className="message user-message">{msg.content}</div>
             </div>
           );
         }
