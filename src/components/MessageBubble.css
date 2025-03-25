@@ -1,0 +1,33 @@
+.message-bubble {
+  position: relative;
+  max-width: 40rem; /* equivalent to max-w-xl */
+  padding: 0.75rem 1rem;
+  border-radius: 0.5rem;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  color: black;
+}
+
+.message-bubble.assistant {
+  background-color: #f3f4f6; /* gray-100 */
+}
+
+.message-bubble.user {
+  background-color: #e5e7eb; /* gray-200 */
+}
+
+.speaker-button {
+  position: absolute;
+  bottom: 0.25rem;
+  left: 0.5rem;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.2s ease-in-out;
+}
+
+.speaker-button img {
+  width: 1rem;
+  height: 1rem;
+  transition: filter 0.2s ease-in-out;
+}

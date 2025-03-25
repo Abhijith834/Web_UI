@@ -1,0 +1,6 @@
+@import "tailwindcss";
+
+body {
+  
+  background-size: cover; /* Ensures the image covers the screen without stretching */
+}
