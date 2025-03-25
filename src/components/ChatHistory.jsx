@@ -8,7 +8,8 @@ const ChatHistory = () => {
   const bottomRef = useRef(null);
 
   useEffect(() => {
-    fetch("/chat_history.json")
+    fetch(`${import.meta.env.BASE_URL}chat_history.json`)
+
       .then((response) => response.json())
       .then((data) => setMessages(data.chat_history))
       .catch((error) => console.error("Error loading chat history:", error));
