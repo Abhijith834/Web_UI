@@ -6,7 +6,7 @@ import speakerIcon from "../assets/speaker.svg";
 const MessageBubble = ({ message, isUser }) => {
   const handleSpeakerClick = () => {
     console.log("Play audio for:", message);
-    // You can integrate a TTS engine or other audio logic here.
+    // Integrate TTS or audio playback as needed
   };
 
   return (

@@ -35,7 +35,6 @@ const MessageBar = () => {
             onChange={(e) => setMessage(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && handleSend()}
           />
-          {/* New inner buttons placed inside the message bar */}
           <div className="inner-buttons flex items-center gap-2 ml-2">
             <button onClick={handleSend} className="icon-button">
               <img src={sendIcon} alt="Send" className="w-6 h-6" />

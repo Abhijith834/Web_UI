@@ -9,7 +9,6 @@ const ChatHistory = () => {
 
   useEffect(() => {
     fetch(`${import.meta.env.BASE_URL}chat_history.json`)
-
       .then((response) => response.json())
       .then((data) => setMessages(data.chat_history))
       .catch((error) => console.error("Error loading chat history:", error));
@@ -23,7 +22,7 @@ const ChatHistory = () => {
 
   const handleSpeakerClick = (content) => {
     console.log("Play audio for:", content);
-    // Place your TTS logic here.
+    // Place your TTS or audio playback logic here
   };
 
   return (
@@ -37,15 +36,11 @@ const ChatHistory = () => {
             prefix = msg.content.substring(0, newlineIndex);
             content = msg.content.substring(newlineIndex + 1);
           }
-
           return (
             <div key={index} className="message-container assistant-align hover-group">
               {prefix && <div className="message-bar-left">{prefix}</div>}
               <div className="message assistant-message">{content}</div>
-              <button
-                className="speaker-button-below"
-                onClick={() => handleSpeakerClick(content)}
-              >
+              <button className="speaker-button-below" onClick={() => handleSpeakerClick(content)}>
                 <img src={speakerIcon} alt="Speaker" />
               </button>
             </div>

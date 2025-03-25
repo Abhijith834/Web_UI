@@ -1,88 +1,106 @@
 @import "tailwindcss";
 
 :root {
-  --button-spacing: 1rem; /* Adjust spacing between buttons and message bar */
+  --button-spacing: 1rem;
 }
 
 .message-bar-container {
   width: 75%;
-  margin: 0 auto; /* Centers it horizontally */
+  margin: 0 auto;
   display: flex;
   align-items: center;
   justify-content: center;
   position: relative;
 }
 
+/* Responsive: shrink container width on small screens */
+@media (max-width: 640px) {
+  .message-bar-container {
+    width: 90%;
+  }
+}
+
 .icon-button-container {
-  width: 3rem; /* Same height as the message bar */
+  width: 3rem;
   height: 3rem;
   display: flex;
   align-items: center;
   justify-content: center;
-  background-color: rgba(15, 23, 42, 0.8); /* Matches message bar */
+  background-color: rgba(15, 23, 42, 0.8);
   backdrop-filter: blur(8px);
-  border-radius: 0.75rem; /* Slightly rounded edges */
+  border-radius: 0.75rem;
   transition: background 0.2s ease-in-out;
 }
-
 .icon-button-container:hover {
   background: rgba(255, 255, 255, 0.2);
 }
-
 .icon-button-container img {
-    filter: invert(1) brightness(1.8); /* Converts black to white & brightens */
-    transition: filter 0.2s ease-in-out;
+  filter: invert(1) brightness(1.8);
+  transition: filter 0.2s ease-in-out;
 }
-  
 .icon-button-container img:hover {
-    filter: invert(1) brightness(2); /* Slightly brighter on hover */
+  filter: invert(1) brightness(2);
 }
 
 .message-bar {
   flex-grow: 1;
-  height: 3rem; /* Same height as buttons */
-  background-color: rgba(15, 23, 42, 0.8); /* Semi-transparent dark background */
-  backdrop-filter: blur(8px); /* Frosted glass effect */
-  border-radius: 0.75rem; /* Rounded edges */
+  height: 3rem;
+  background-color: rgba(15, 23, 42, 0.8);
+  backdrop-filter: blur(8px);
+  border-radius: 0.75rem;
   display: flex;
   align-items: center;
-  padding: 0 1rem; /* Padding inside */
+  padding: 0 1rem;
+  flex-wrap: nowrap;  /* Prevent wrapping */
 }
 
 .message-input {
   flex-grow: 1;
+  min-width: 0;  /* Allow the input to shrink */
   border: none;
   outline: none;
   font-size: 1rem;
-  color: white; /* White text */
+  color: white;
   background-color: transparent;
 }
 
 .message-input::placeholder {
-  color: rgba(255, 255, 255, 0.5); /* Slightly faded placeholder */
+  color: rgba(255, 255, 255, 0.5);
 }
 
 .left-button {
   margin-right: var(--button-spacing);
 }
-
 .right-button {
   margin-left: var(--button-spacing);
 }
 
-.inner-buttons button {
-  cursor: pointer; /* Show pointer on hover */
+/* Ensure inner-buttons don't shrink away */
+.inner-buttons {
+  flex-shrink: 0;
 }
 
+.inner-buttons button {
+  cursor: pointer;
+}
 .inner-buttons img {
   filter: invert(1) brightness(1.8);
   transition: filter 0.1s ease-in-out;
 }
-
 .inner-buttons img:hover {
   filter: invert(1) brightness(2);
 }
-
 .inner-buttons button:active img {
-  filter: invert(1) brightness(1.2); /* Dimmer on click */
+  filter: invert(1) brightness(1.2);
+}
+
+/* Mobile adjustments */
+@media (max-width: 640px) {
+  .message-bar {
+    padding: 0 0.5rem;
+  }
+  .inner-buttons {
+    gap: 0.5rem;
+    margin-left: 0.5rem;
+  }
 }

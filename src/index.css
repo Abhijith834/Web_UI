@@ -1,33 +1,28 @@
 @import "tailwindcss";
 
-/* Ensure the entire page scrolls vertically but prevents horizontal scrolling */
+/* Full page scrolling and background */
 html, body {
   height: 100%;
   width: 100vw;
-  overflow-x: hidden; /* Prevents horizontal scrolling */
-  overflow-y: auto; /* Enables vertical scrolling */
+  overflow-x: hidden;
+  overflow-y: auto;
   background: url("/Web_UI/tempImageHwwKv21.webp") no-repeat center center fixed;
-  background-size: cover; /* Ensures it covers without stretching */
+  background-size: cover;
   scrollbar-width: thin;
   scrollbar-color: rgba(255, 255, 255, 0.5) transparent;
 }
 
-/* WebKit browsers (Chrome, Edge, Safari) */
+/* Scrollbar styling for WebKit browsers */
 body::-webkit-scrollbar {
   width: 8px;
-  /* position: absolute; */
-  right: 0;
 }
-
 body::-webkit-scrollbar-track {
   background: transparent;
 }
-
 body::-webkit-scrollbar-thumb {
   background: rgba(255, 255, 255, 0.5);
   border-radius: 4px;
 }
-
 body::-webkit-scrollbar-thumb:hover {
   background: rgba(255, 255, 255, 0.8);
 }

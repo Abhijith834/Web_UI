@@ -1,6 +1,6 @@
 import React, { useState } from "react";
-import "./Header.css"; // Import styles
-import deleteIcon from "../assets/delete.svg"; // Import delete icon
+import "./Header.css";
+import deleteIcon from "../assets/delete.svg";
 
 const Header = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -27,8 +27,12 @@ const Header = () => {
         <div className="add-chat-container">
           <button className="add-chat-button">+</button>
           <div className="chat-options">
-            <button className="chat-option" onClick={() => addNewChat("normal")}>Normal</button>
-            <button className="chat-option" onClick={() => addNewChat("learning")}>Learning</button>
+            <button className="chat-option" onClick={() => addNewChat("normal")}>
+              Normal
+            </button>
+            <button className="chat-option" onClick={() => addNewChat("learning")}>
+              Learning
+            </button>
           </div>
         </div>
 
@@ -37,12 +41,7 @@ const Header = () => {
           {chats.map((chat, index) => (
             <li key={index} className="chat-item">
               <span>{chat}</span>
-              <img
-                src={deleteIcon}
-                alt="Delete"
-                className="delete-icon"
-                onClick={() => deleteChat(index)}
-              />
+              <img src={deleteIcon} alt="Delete" className="delete-icon" onClick={() => deleteChat(index)} />
             </li>
           ))}
         </ul>
@@ -50,7 +49,6 @@ const Header = () => {
 
       {/* Header */}
       <header className="header flex items-center px-4 py-3">
-        {/* Hamburger Menu */}
         <button className="text-white focus:outline-none" onClick={toggleMenu}>
           <svg className="w-6 h-6" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
