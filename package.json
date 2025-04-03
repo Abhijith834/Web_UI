@@ -3,7 +3,7 @@
   "private": true,
   "version": "0.0.0",
   "type": "module",
-  "homepage": "https://Abhijith834.github.io/Web_UI",
+  "homepage": "https://tutorbot.online",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
@@ -15,7 +15,9 @@
   "dependencies": {
     "@tailwindcss/vite": "^4.0.14",
     "react": "^19.0.0",
-    "react-dom": "^19.0.0"
+    "react-dom": "^19.0.0",
+    "react-router-dom": "^7.4.0",
+    "socket.io-client": "^4.8.1"
   },
   "devDependencies": {
     "@eslint/js": "^9.21.0",
