@@ -8,4 +8,8 @@ export default defineConfig({
   plugins: [
     tailwindcss(),
     react()],
+    server: {
+      historyApiFallback: true, // Allow routing fallback
+      
+    }
 })
