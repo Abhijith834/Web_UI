@@ -11,7 +11,11 @@ const Header = ({ setActiveChat, startedChats, activeChat }) => {
   };
 
   useEffect(() => {
-    fetch("http://localhost:5000/api/ai-pocket-tutor/database/folders")
+    fetch("https://mint-jackal-publicly.ngrok-free.app/api/ai-pocket-tutor/database/folders", {
+      headers: {
+        "ngrok-skip-browser-warning": "true"
+      }
+    })
       .then((res) => res.json())
       .then((data) => {
         if (!data.database_folders) return;
@@ -44,11 +48,11 @@ const Header = ({ setActiveChat, startedChats, activeChat }) => {
 
     // Send message to backend
     const messageText = type === "normal" ? "new chat (normal)" : "new chat (learning)";
-
-    fetch("http://localhost:5000/api/cli-message", {
+    fetch("https://mint-jackal-publicly.ngrok-free.app/api/cli-message", {
       method: "POST",
       headers: {
-        "Content-Type": "application/json"
+        "Content-Type": "application/json",
+        "ngrok-skip-browser-warning": "true"
       },
       body: JSON.stringify({ message: messageText })
     })

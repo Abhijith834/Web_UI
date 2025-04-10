@@ -1,4 +1,3 @@
-// ChatHistory.jsx
 import React, { useEffect, useState, useRef } from "react";
 import "./ChatHistory.css";
 import speakerIcon from "../assets/speaker.svg";
@@ -9,9 +8,13 @@ const ChatHistory = ({ activeChat }) => {
   const bottomRef = useRef(null);
 
   const fetchChatHistory = (sessionId) => {
-    const url = `http://localhost:5000/api/database/file?session=${sessionId}&filepath=chat_history.json`;
+    const url = `https://mint-jackal-publicly.ngrok-free.app/api/database/file?session=${sessionId}&filepath=chat_history.json`;
 
-    fetch(url)
+    fetch(url, {
+      headers: {
+        "ngrok-skip-browser-warning": "true"
+      }
+    })
       .then((response) => {
         if (!response.ok) {
           throw new Error(`HTTP ${response.status}: ${response.statusText}`);
@@ -58,7 +61,11 @@ const ChatHistory = ({ activeChat }) => {
   // Poll for file changes every 3 seconds
   useEffect(() => {
     const interval = setInterval(() => {
-      fetch("http://localhost:5000/api/database/notifications")
+      fetch("https://mint-jackal-publicly.ngrok-free.app/api/database/notifications", {
+        headers: {
+          "ngrok-skip-browser-warning": "true"
+        }
+      })
         .then((res) => res.json())
         .then((notifications) => {
           if (!Array.isArray(notifications)) return;

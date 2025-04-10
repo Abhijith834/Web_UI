@@ -49,12 +49,13 @@ const MessageBar = ({ activeChat, isStarted, handleStart }) => {
       chat_session: activeChat,
     };
 
-    fetch("http://localhost:5000/api/cli-message", {
+    fetch("https://mint-jackal-publicly.ngrok-free.app/api/cli-message", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
+        "ngrok-skip-browser-warning": "true"
       },
-      body: JSON.stringify(payload),
+      body: JSON.stringify({ message: messageText })
     })
       .then((response) => {
         if (!response.ok) {
