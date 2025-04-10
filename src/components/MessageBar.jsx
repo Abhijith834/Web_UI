@@ -45,7 +45,7 @@ const MessageBar = ({ activeChat, isStarted, handleStart }) => {
     handleStart(activeChat);
     // Prepare the payload with the message and chat_session information
     const payload = {
-      message: `chat (${activeChat})`,
+      message: 'chat (${activeChat})',
       chat_session: activeChat,
     };
 

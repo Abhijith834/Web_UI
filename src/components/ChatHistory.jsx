@@ -59,37 +59,42 @@ const ChatHistory = ({ activeChat }) => {
   }, [messages]);
 
   // Poll for file changes every 3 seconds
-  useEffect(() => {
-    const interval = setInterval(() => {
-      fetch("https://mint-jackal-publicly.ngrok-free.app/api/database/notifications", {
-        headers: {
-          "ngrok-skip-browser-warning": "true"
+// Poll for file changes every 3 seconds
+useEffect(() => {
+  const interval = setInterval(() => {
+    fetch("https://mint-jackal-publicly.ngrok-free.app/api/database/notifications", {
+      headers: {
+        "ngrok-skip-browser-warning": "true"
+      }
+    })
+      .then((res) => res.json())
+      .then((notifications) => {
+        // If the server returns an empty array, no new changes
+        if (!Array.isArray(notifications) || notifications.length === 0) {
+          return;
+        }
+
+        // Look for the chat_history.json update among the new notifications
+        const updated = notifications.find((n) => {
+          return (
+            n.event_type === "modified" &&
+            !n.is_directory &&
+            n.src_path.includes(`chat_${activeChat}\\chat_history.json`)
+          );
+        });
+
+        if (updated) {
+          console.log(`[Watcher] Detected update for chat ${activeChat}`);
+          fetchChatHistory(activeChat);
         }
       })
-        .then((res) => res.json())
-        .then((notifications) => {
-          if (notifications.length === 0) return;
-  
-          const updated = notifications.find((n) => {
-            return (
-              n.event_type === "modified" &&
-              !n.is_directory &&
-              n.src_path.includes(`chat_${activeChat}\\chat_history.json`)
-            );
-          });
-  
-          if (updated) {
-            console.log(`[Watcher] Detected update for chat ${activeChat}`);
-            fetchChatHistory(activeChat);
-          }
-        })
-        .catch((err) => {
-          console.warn("Notification polling failed:", err);
-        });
-    }, 3000);
-    return () => clearInterval(interval);
-  }, [activeChat]);
-  
+      .catch((err) => {
+        console.warn("Notification polling failed:", err);
+      });
+  }, 3000);
+
+  return () => clearInterval(interval);
+}, [activeChat]);
 
   const handleSpeakerClick = (content) => {
     console.log("Play audio for:", content);
