@@ -2,19 +2,44 @@ import React, { useEffect, useState, useRef } from "react";
 import "./ChatHistory.css";
 import speakerIcon from "../assets/speaker.svg";
 
+// Helper function to fetch with fallback
+const fetchWithFallback = (endpoint, options = {}) => {
+  const localUrl = `http://localhost:5000${endpoint}`;
+  // If the site is being accessed on the server PC, use localhost directly.
+  if (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1") {
+    return fetch(localUrl, options);
+  }
+  
+  // Try using ngrok URL first
+  const ngrokUrl = `https://mint-jackal-publicly.ngrok-free.app${endpoint}`;
+  // Merge ngrok header with any existing headers
+  const ngrokHeaders = {
+    ...options.headers,
+    "ngrok-skip-browser-warning": "true"
+  };
+  
+  // Try fetching from ngrok, then fall back to localUrl if it fails
+  return fetch(ngrokUrl, { ...options, headers: ngrokHeaders })
+    .then((response) => {
+      if (!response.ok) {
+        throw new Error(`Ngrok error: ${response.status}`);
+      }
+      return response;
+    })
+    .catch((err) => {
+      console.warn("Ngrok fetch failed, falling back to localhost:5000", err);
+      return fetch(localUrl, options);
+    });
+};
+
 const ChatHistory = ({ activeChat }) => {
   const [messages, setMessages] = useState([]);
   const [error, setError] = useState(null);
   const bottomRef = useRef(null);
 
   const fetchChatHistory = (sessionId) => {
-    const url = `https://mint-jackal-publicly.ngrok-free.app/api/database/file?session=${sessionId}&filepath=chat_history.json`;
-
-    fetch(url, {
-      headers: {
-        "ngrok-skip-browser-warning": "true"
-      }
-    })
+    const endpoint = `/api/database/file?session=${sessionId}&filepath=chat_history.json`;
+    fetchWithFallback(endpoint)
       .then((response) => {
         if (!response.ok) {
           throw new Error(`HTTP ${response.status}: ${response.statusText}`);
@@ -32,11 +57,9 @@ const ChatHistory = ({ activeChat }) => {
         } catch (err) {
           throw new Error("Failed to parse inner JSON in 'content'");
         }
-
         if (!parsed.chat_history || !Array.isArray(parsed.chat_history)) {
           throw new Error("Parsed chat history is invalid or not an array");
         }
-
         setMessages(parsed.chat_history);
         setError(null);
       })
@@ -58,43 +81,37 @@ const ChatHistory = ({ activeChat }) => {
     }
   }, [messages]);
 
-  // Poll for file changes every 3 seconds
-// Poll for file changes every 3 seconds
-useEffect(() => {
-  const interval = setInterval(() => {
-    fetch("https://mint-jackal-publicly.ngrok-free.app/api/database/notifications", {
-      headers: {
-        "ngrok-skip-browser-warning": "true"
-      }
-    })
-      .then((res) => res.json())
-      .then((notifications) => {
-        // If the server returns an empty array, no new changes
-        if (!Array.isArray(notifications) || notifications.length === 0) {
-          return;
-        }
+  // Poll for file changes every 3 seconds using the fallback fetch function
+  useEffect(() => {
+    const interval = setInterval(() => {
+      const endpoint = "/api/database/notifications";
+      fetchWithFallback(endpoint)
+        .then((res) => res.json())
+        .then((notifications) => {
+          // If no new notifications, do nothing.
+          if (!Array.isArray(notifications) || notifications.length === 0) return;
 
-        // Look for the chat_history.json update among the new notifications
-        const updated = notifications.find((n) => {
-          return (
-            n.event_type === "modified" &&
-            !n.is_directory &&
-            n.src_path.includes(`chat_${activeChat}\\chat_history.json`)
-          );
+          // Look for an update for chat_history.json for the active chat.
+          const updated = notifications.find((n) => {
+            return (
+              n.event_type === "modified" &&
+              !n.is_directory &&
+              n.src_path.includes(`chat_${activeChat}\\chat_history.json`)
+            );
+          });
+
+          if (updated) {
+            console.log(`[Watcher] Detected update for chat ${activeChat}`);
+            fetchChatHistory(activeChat);
+          }
+        })
+        .catch((err) => {
+          console.warn("Notification polling failed:", err);
         });
+    }, 3000);
 
-        if (updated) {
-          console.log(`[Watcher] Detected update for chat ${activeChat}`);
-          fetchChatHistory(activeChat);
-        }
-      })
-      .catch((err) => {
-        console.warn("Notification polling failed:", err);
-      });
-  }, 3000);
-
-  return () => clearInterval(interval);
-}, [activeChat]);
+    return () => clearInterval(interval);
+  }, [activeChat]);
 
   const handleSpeakerClick = (content) => {
     console.log("Play audio for:", content);

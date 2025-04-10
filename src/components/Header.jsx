@@ -2,6 +2,33 @@ import React, { useState, useEffect } from "react";
 import "./Header.css";
 import deleteIcon from "../assets/delete.svg";
 
+// Helper function to fetch with fallback
+const fetchWithFallback = (endpoint, options = {}) => {
+  const localUrl = `http://localhost:5000${endpoint}`;
+  if (
+    window.location.hostname === "localhost" ||
+    window.location.hostname === "127.0.0.1"
+  ) {
+    return fetch(localUrl, options);
+  }
+  const ngrokUrl = `https://mint-jackal-publicly.ngrok-free.app${endpoint}`;
+  const ngrokHeaders = {
+    ...options.headers,
+    "ngrok-skip-browser-warning": "true"
+  };
+  return fetch(ngrokUrl, { ...options, headers: ngrokHeaders })
+    .then((response) => {
+      if (!response.ok) {
+        throw new Error(`Ngrok error: ${response.status}`);
+      }
+      return response;
+    })
+    .catch((err) => {
+      console.warn("Ngrok fetch failed, falling back to localhost:5000", err);
+      return fetch(localUrl, options);
+    });
+};
+
 const Header = ({ setActiveChat, startedChats, activeChat }) => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [chats, setChats] = useState([]);
@@ -11,11 +38,7 @@ const Header = ({ setActiveChat, startedChats, activeChat }) => {
   };
 
   useEffect(() => {
-    fetch("https://mint-jackal-publicly.ngrok-free.app/api/ai-pocket-tutor/database/folders", {
-      headers: {
-        "ngrok-skip-browser-warning": "true"
-      }
-    })
+    fetchWithFallback("/api/ai-pocket-tutor/database/folders")
       .then((res) => res.json())
       .then((data) => {
         if (!data.database_folders) return;
@@ -30,7 +53,7 @@ const Header = ({ setActiveChat, startedChats, activeChat }) => {
 
         setChats(chatFolders);
 
-        // Auto-select first chat
+        // Auto-select first chat if any exist.
         if (chatFolders.length > 0) {
           setActiveChat(chatFolders[0].id);
         }
@@ -46,15 +69,19 @@ const Header = ({ setActiveChat, startedChats, activeChat }) => {
     };
     setChats([...chats, newChat]);
 
-    // Send message to backend
+    // Send message to backend with a timestamp.
     const messageText = type === "normal" ? "new chat (normal)" : "new chat (learning)";
-    fetch("https://mint-jackal-publicly.ngrok-free.app/api/cli-message", {
+    const payload = {
+      message: messageText,
+      chat_session: activeChat,
+      timestamp: new Date().toISOString()
+    };
+    fetchWithFallback("/api/cli-message", {
       method: "POST",
       headers: {
-        "Content-Type": "application/json",
-        "ngrok-skip-browser-warning": "true"
+        "Content-Type": "application/json"
       },
-      body: JSON.stringify({ message: messageText })
+      body: JSON.stringify(payload)
     })
       .then((response) => {
         if (!response.ok) {
