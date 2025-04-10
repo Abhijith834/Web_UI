@@ -13,6 +13,22 @@
   position: relative;
 }
 
+.disabled-button {
+  opacity: 0.4;
+  pointer-events: none;
+}
+
+.disabled-bar {
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+.mic-button.recording {
+  background-color: rgba(255, 0, 0, 0.7);
+  border-radius: 50%;
+}
+
+
 /* Responsive: shrink container width on small screens */
 @media (max-width: 640px) {
   .message-bar-container {
@@ -104,3 +120,4 @@
     margin-left: 0.5rem;
   }
 }
+

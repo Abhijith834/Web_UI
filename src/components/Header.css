@@ -25,6 +25,14 @@
   left: 0;
 }
 
+.chat-item.highlighted-chat {
+  background-color: rgba(13, 134, 190, 0.3);
+  border-radius: 0.5rem;
+  padding: 0.4rem;
+}
+
+
+
 /* Responsive: Adjust menu width on very small screens */
 @media (max-width: 640px) {
   .side-menu {
@@ -120,4 +128,10 @@
 }
 .chat-item:hover .delete-icon {
   opacity: 1;
+}
+
+.chat-item.highlighted-chat {
+  background-color: rgba(17, 122, 203, 0.3);
+  border-radius: 0.5rem;
+  padding: 0.4rem;
 }
