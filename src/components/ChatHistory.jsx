@@ -68,8 +68,8 @@ const ChatHistory = ({ activeChat }) => {
       })
         .then((res) => res.json())
         .then((notifications) => {
-          if (!Array.isArray(notifications)) return;
-
+          if (notifications.length === 0) return;
+  
           const updated = notifications.find((n) => {
             return (
               n.event_type === "modified" &&
@@ -77,9 +77,9 @@ const ChatHistory = ({ activeChat }) => {
               n.src_path.includes(`chat_${activeChat}\\chat_history.json`)
             );
           });
-
+  
           if (updated) {
-            console.log(`[Watcher] Reloading chat ${activeChat}`);
+            console.log(`[Watcher] Detected update for chat ${activeChat}`);
             fetchChatHistory(activeChat);
           }
         })
@@ -87,9 +87,9 @@ const ChatHistory = ({ activeChat }) => {
           console.warn("Notification polling failed:", err);
         });
     }, 3000);
-
     return () => clearInterval(interval);
   }, [activeChat]);
+  
 
   const handleSpeakerClick = (content) => {
     console.log("Play audio for:", content);

@@ -55,8 +55,9 @@ const MessageBar = ({ activeChat, isStarted, handleStart }) => {
         "Content-Type": "application/json",
         "ngrok-skip-browser-warning": "true"
       },
-      body: JSON.stringify({ message: messageText })
+      body: JSON.stringify(payload)
     })
+    
       .then((response) => {
         if (!response.ok) {
           throw new Error(`HTTP error! Status: ${response.status}`);
