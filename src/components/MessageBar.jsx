@@ -6,7 +6,6 @@ import sendIcon from "../assets/send.svg";
 import micIcon from "../assets/mic.svg";
 import { useNavigate } from "react-router-dom";
 
-// Helper function to fetch with fallback.
 const fetchWithFallback = (endpoint, options = {}) => {
   const localUrl = `http://localhost:5000${endpoint}`;
   if (
@@ -22,9 +21,7 @@ const fetchWithFallback = (endpoint, options = {}) => {
   };
   return fetch(ngrokUrl, { ...options, headers: ngrokHeaders })
     .then((response) => {
-      if (!response.ok) {
-        throw new Error(`Ngrok error: ${response.status}`);
-      }
+      if (!response.ok) throw new Error(`Ngrok error: ${response.status}`);
       return response;
     })
     .catch((err) => {
@@ -35,89 +32,160 @@ const fetchWithFallback = (endpoint, options = {}) => {
 
 const MessageBar = ({ activeChat, isStarted, handleStart }) => {
   const [message, setMessage] = useState("");
+  const [loading, setLoading] = useState(false);
   const fileInputRef = useRef(null);
   const navigate = useNavigate();
 
-  // Send a plain text chat message along with a timestamp.
   const handleSend = () => {
     if (!isStarted) return;
-    console.log(`Send message in chat ${activeChat}:`, message);
     const payload = {
-      message: message,
+      message,
       chat_session: activeChat,
       timestamp: new Date().toISOString()
     };
-
     fetchWithFallback("/api/cli-message", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload)
-    })
-      .then((response) => {
-        if (!response.ok) {
-          console.error("[handleSend] HTTP error! Status:", response.status);
-          throw new Error(`HTTP error! Status: ${response.status}`);
-        }
-        return response.json();
-      })
-      .then((data) => {
-        console.log("Message sent via cli-message:", data);
-      })
-      .catch((error) => {
-        console.error("Error sending message via cli-message:", error);
-      });
-    setMessage("");
+    }).then(() => setMessage(""));
   };
 
-  const handleMic = () => {
+  const handleMic = async () => {
     if (!isStarted) return;
-    console.log(`Mic clicked in chat ${activeChat}`);
+  
+    const fileUrl = "/OSR_us_000_0032_8k.wav";
+  
+    try {
+      // Fetch the audio file as a blob
+      const response = await fetch(fileUrl);
+      const blob = await response.blob();
+  
+      const formData = new FormData();
+      formData.append("audio", blob, "OSR_us_000_0032_8k.wav");
+      formData.append("session_id", activeChat);
+  
+      const res = await fetchWithFallback("/api/transcribe", {
+        method: "POST",
+        body: formData,
+      });
+  
+      if (!res.ok) {
+        throw new Error(`Failed to send audio: ${res.statusText}`);
+      }
+  
+      console.log("✅ Audio file sent to backend");
+    } catch (err) {
+      console.error("❌ Error sending audio file:", err);
+    }
   };
+  
 
   const handleGoToMCQ = () => {
     if (!isStarted) return;
-    navigate("/mcq");
+    navigate("/mcq", { state: { sessionId: activeChat } });
   };
 
-  const handleFileButtonClick = () => {
+  const handleFileButtonClick = async () => {
     if (!isStarted) return;
-    fileInputRef.current.click();
-  };
+    try {
+      const res = await fetch("http://localhost:5000/api/ai-pocket-tutor/database/files");
+      const data = await res.json();
+      const sessionFiles = data[activeChat];
+      const hasPdf = sessionFiles?.some((f) => f.startsWith("pdf\\") || f.startsWith("pdf/"));
 
-  const handleFileChange = (e) => {
-    const files = e.target.files;
-    if (files.length) {
-      console.log("Selected files:", files);
+      if (hasPdf) {
+        const pdfFile = sessionFiles.find(f => f.startsWith("pdf\\") || f.startsWith("pdf/"));
+        const fileUrl = `http://localhost:5000/api/database/pdf?session=${activeChat}&filepath=${encodeURIComponent(pdfFile)}`;
+        window.open(fileUrl, "_blank");
+      } else {
+        fileInputRef.current.click();
+      }
+    } catch (err) {
+      console.error("Error checking for existing PDFs:", err);
+      fileInputRef.current.click();
     }
   };
 
-  // onStart sends a CLI message (e.g., to start a chat session) along with a timestamp.
+  const handleFileChange = async (e) => {
+    const files = e.target.files;
+    if (!files.length) return;
+  
+    const formData = new FormData();
+    formData.append("file", files[0]);
+    formData.append("session_id", activeChat);
+  
+    try {
+      const res = await fetch("http://localhost:5000/api/upload", {
+        method: "POST",
+        body: formData,
+      });
+  
+      const result = await res.json();
+  
+      if (res.ok) {
+        console.log("✅ File received by backend:", result.path);
+  
+        // 🔥 Fix double backslashes
+        const normalizedPath = result.path.replace(/\\\\/g, "\\");
+        const formattedMessage = `file (${normalizedPath})`;
+        console.log(formattedMessage);
+        alert(formattedMessage);
+
+  
+        await fetch("http://localhost:5000/api/cli-message", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            message: formattedMessage,
+            timestamp: Date.now(),
+          }),
+        });
+  
+        console.log("📤 CLI message sent:", formattedMessage);
+      } else {
+        console.error("❌ Upload failed:", result.error);
+        alert(`Upload failed: ${result.error}`);
+      }
+    } catch (err) {
+      console.error("❌ Upload error:", err);
+      alert("Something went wrong while uploading the file.");
+    }
+  };
+  
+
   const onStart = () => {
-    handleStart(activeChat);
+    setLoading(true);
+    handleStart(activeChat); // optimistic UI update
+
     const payload = {
       message: `chat (${activeChat})`,
       chat_session: activeChat,
       timestamp: new Date().toISOString()
     };
 
-    console.log("[MessageBar.onStart] Sending payload:", payload);
-
     fetchWithFallback("/api/cli-message", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload)
     })
-      .then((response) => {
-        if (!response.ok) {
-          throw new Error(`HTTP error! Status: ${response.status}`);
-        }
-        return response.json();
+      .then(() => {
+        const poll = setInterval(() => {
+          fetch("http://localhost:5000/api/database/session-state")
+            .then((res) => res.json())
+            .then((data) => {
+              if (data.session_id === activeChat) {
+                clearInterval(poll);
+                handleStart(activeChat);
+                setLoading(false);
+              }
+            });
+        }, 2000);
       })
-      .then((data) => {
-        console.log("Chat started and cli-message sent:", data);
-      })
-      .catch((error) => {
-        console.error("Error sending cli-message:", error);
+      .catch((err) => {
+        console.error("Error sending cli-message:", err);
+        setLoading(false);
       });
   };
 
@@ -147,8 +215,9 @@ const MessageBar = ({ activeChat, isStarted, handleStart }) => {
               onClick={onStart}
               style={{ backgroundColor: "rgba(13, 134, 190, 0.3)" }}
               className="text-black px-3 py-1 rounded mr-2"
+              disabled={loading}
             >
-              Start
+              {loading ? "Loading..." : "Start"}
             </button>
           )}
           <input

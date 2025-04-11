@@ -54,9 +54,6 @@ const Header = ({ setActiveChat, startedChats, activeChat }) => {
         setChats(chatFolders);
 
         // Auto-select first chat if any exist.
-        if (chatFolders.length > 0) {
-          setActiveChat(chatFolders[0].id);
-        }
       })
       .catch((err) => console.error("Failed to fetch chat folders:", err));
   }, [setActiveChat]);
