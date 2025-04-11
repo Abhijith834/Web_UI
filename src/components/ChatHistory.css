@@ -10,6 +10,10 @@
   gap: 1rem;
 }
 
+.speaker-button-below.active {
+  opacity: 1;
+}
+
 /* Responsive: widen chat history on small screens */
 @media (max-width: 768px) {
   .chat-history {

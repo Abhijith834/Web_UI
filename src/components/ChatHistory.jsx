@@ -29,7 +29,15 @@ const fetchWithFallback = (endpoint, options = {}) => {
 const ChatHistory = ({ activeChat }) => {
   const [messages, setMessages] = useState([]);
   const [error, setError] = useState(null);
+  // playingTTSId tracks which assistant block’s TTS is active
+  const [playingTTSId, setPlayingTTSId] = useState(null);
+  // loadingTTSId tracks which TTS audio is pending from the backend
+  const [loadingTTSId, setLoadingTTSId] = useState(null);
   const bottomRef = useRef(null);
+
+  // Refs to track current audio object and polling interval
+  const currentAudioRef = useRef(null);
+  const pollingIntervalRef = useRef(null);
 
   const fetchChatHistory = (sessionId) => {
     const endpoint = `/api/database/file?session=${sessionId}&filepath=chat_history.json`;
@@ -73,6 +81,7 @@ const ChatHistory = ({ activeChat }) => {
     }
   }, [messages]);
 
+  // Poll for notifications to update chat history if modified
   useEffect(() => {
     const interval = setInterval(() => {
       const endpoint = "/api/database/notifications";
@@ -100,10 +109,78 @@ const ChatHistory = ({ activeChat }) => {
     return () => clearInterval(interval);
   }, [activeChat]);
 
+  // Poll for the TTS audio file until it is available, then play it.
+  const startPollingAudio = (identifier) => {
+    const encodedIdentifier = encodeURIComponent(identifier);
+    const url = `http://localhost:5000/api/tts/chat_${activeChat}/${encodedIdentifier}.wav`;
+    console.log("Polling for TTS file at", url);
+    pollingIntervalRef.current = setInterval(() => {
+      // Use HEAD request to check if file exists
+      fetch(url, { method: "HEAD" })
+        .then((response) => {
+          if (response.ok) {
+            clearInterval(pollingIntervalRef.current);
+            pollingIntervalRef.current = null;
+            const audio = new Audio(url);
+            // When playback starts, clear the loading state
+            setLoadingTTSId(null);
+            // Store the current audio information
+            currentAudioRef.current = { identifier, audio };
+            // When playback ends, clear the playing state.
+            audio.addEventListener("ended", () => {
+              currentAudioRef.current = null;
+              setPlayingTTSId(null);
+              console.log(`[TTS] Playback ended for ${identifier}`);
+            });
+            audio.play();
+            console.log("[TTS] Audio playing for", identifier);
+          }
+        })
+        .catch((err) => {
+          console.log("[TTS] Audio file not available yet...", err);
+        });
+    }, 1000);
+  };
+
+  // Handle click on the speaker button for a given assistant-only index.
   const handleSpeakerClick = (assistantIndex) => {
     if (!activeChat) return;
-
     const identifier = `chat_${activeChat}#${assistantIndex}`;
+
+    // If this same identifier is already playing, stop playback.
+    if (playingTTSId === identifier) {
+      if (currentAudioRef.current) {
+        currentAudioRef.current.audio.pause();
+        currentAudioRef.current.audio.currentTime = 0;
+      }
+      if (pollingIntervalRef.current) {
+        clearInterval(pollingIntervalRef.current);
+        pollingIntervalRef.current = null;
+      }
+      setPlayingTTSId(null);
+      setLoadingTTSId(null);
+      console.log(`[TTS] Stopped audio for ${identifier}`);
+      return;
+    }
+
+    // If some other TTS is playing, stop it first.
+    if (playingTTSId && currentAudioRef.current) {
+      currentAudioRef.current.audio.pause();
+      currentAudioRef.current.audio.currentTime = 0;
+      if (pollingIntervalRef.current) {
+        clearInterval(pollingIntervalRef.current);
+        pollingIntervalRef.current = null;
+      }
+      setPlayingTTSId(null);
+      setLoadingTTSId(null);
+      currentAudioRef.current = null;
+    }
+
+    // Set the playing identifier and mark it as loading.
+    setPlayingTTSId(identifier);
+    setLoadingTTSId(identifier);
+
+    // Send the TTS request with the compact identifier.
     const payload = {
       message: `tts (${identifier})`,
       chat_session: activeChat,
@@ -116,8 +193,16 @@ const ChatHistory = ({ activeChat }) => {
       body: JSON.stringify(payload)
     })
       .then((res) => res.json())
-      .then((data) => console.log("[TTS] Sent:", data))
-      .catch((err) => console.error("[TTS] Error:", err));
+      .then((data) => {
+        console.log("[TTS] Sent:", data);
+        // Start polling for the TTS audio file.
+        startPollingAudio(identifier);
+      })
+      .catch((err) => {
+        console.error("[TTS] Error:", err);
+        setPlayingTTSId(null);
+        setLoadingTTSId(null);
+      });
   };
 
   if (error) {
@@ -141,15 +226,22 @@ const ChatHistory = ({ activeChat }) => {
             content = content.substring(newlineIndex + 1);
           }
 
+          const currentIdentifier = `chat_${activeChat}#${currentAssistantIndex}`;
           return (
             <div key={index} className="message-container assistant-align hover-group">
               {prefix && <div className="message-bar-left">{prefix}</div>}
               <div className="message assistant-message">{content}</div>
               <button
-                className="speaker-button-below"
+                className={`speaker-button-below ${
+                  playingTTSId === currentIdentifier ? "active" : ""
+                }`}
                 onClick={() => handleSpeakerClick(currentAssistantIndex)}
               >
-                <img src={speakerIcon} alt="Speaker" />
+                {playingTTSId === currentIdentifier && loadingTTSId === currentIdentifier ? (
+                  <img src="/loading-loading-forever.gif" alt="Loading" />
+                ) : (
+                  <img src={speakerIcon} alt="Speaker" />
+                )}
               </button>
             </div>
           );

@@ -53,6 +53,7 @@ const MessageBar = ({ activeChat, isStarted, handleStart }) => {
   const handleMic = async () => {
     if (!isStarted) return;
   
+    // URL of the audio file in the public folder
     const fileUrl = "/OSR_us_000_0032_8k.wav";
   
     try {
@@ -64,18 +65,44 @@ const MessageBar = ({ activeChat, isStarted, handleStart }) => {
       formData.append("audio", blob, "OSR_us_000_0032_8k.wav");
       formData.append("session_id", activeChat);
   
+      // Send the audio file to the backend for saving.
       const res = await fetchWithFallback("/api/transcribe", {
         method: "POST",
         body: formData,
       });
-  
       if (!res.ok) {
         throw new Error(`Failed to send audio: ${res.statusText}`);
       }
+      const data = await res.json();
+      console.log("✅ Audio file sent to backend:", data);
   
-      console.log("✅ Audio file sent to backend");
+      // Ensure the backend returned a URL
+      if (!data.url) {
+        throw new Error("Backend did not return a URL");
+      }
+  
+      // Now send a CLI message with the save location in the format:
+      // stt (save location)
+      const cliPayload = {
+        message: `stt (${data.url})`,
+        chat_session: activeChat,
+        timestamp: new Date().toISOString(),
+      };
+  
+      const cliRes = await fetchWithFallback("/api/cli-message", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(cliPayload),
+      });
+      if (!cliRes.ok) {
+        throw new Error(`CLI message failed: ${cliRes.statusText}`);
+      }
+      const cliData = await cliRes.json();
+      console.log("✅ CLI message sent:", cliData);
+  
+      // Both endpoints responded with JSON data.
     } catch (err) {
-      console.error("❌ Error sending audio file:", err);
+      console.error("❌ Error in mic handler:", err);
     }
   };
   
