@@ -23,7 +23,7 @@
   pointer-events: none;
 }
 
-.mic-button.recording {
+.icon-button.recording {
   background-color: rgba(255, 0, 0, 0.7);
   border-radius: 50%;
 }

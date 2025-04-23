@@ -2,254 +2,229 @@ import React, { useEffect, useState, useRef } from "react";
 import "./ChatHistory.css";
 import speakerIcon from "../assets/speaker.svg";
 
-// Helper function to fetch with fallback
+// Helper to try fetch via ngrok or localhost
 const fetchWithFallback = (endpoint, options = {}) => {
-  const localUrl = `http://localhost:5000${endpoint}`;
-  if (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1") {
-    return fetch(localUrl, options);
+  const local = `http://localhost:5000${endpoint}`;
+  if (["localhost","127.0.0.1"].includes(window.location.hostname)) {
+    return fetch(local, options);
   }
-
-  const ngrokUrl = `https://mint-jackal-publicly.ngrok-free.app${endpoint}`;
-  const ngrokHeaders = {
-    ...options.headers,
-    "ngrok-skip-browser-warning": "true"
-  };
-
-  return fetch(ngrokUrl, { ...options, headers: ngrokHeaders })
-    .then((response) => {
-      if (!response.ok) throw new Error(`Ngrok error: ${response.status}`);
-      return response;
-    })
-    .catch((err) => {
-      console.warn("Ngrok fetch failed, falling back to localhost:5000", err);
-      return fetch(localUrl, options);
-    });
+  const ngrok = `https://mint-jackal-publicly.ngrok-free.app${endpoint}`;
+  return fetch(ngrok, {
+    ...options,
+    headers: { ...options.headers, "ngrok-skip-browser-warning":"true" }
+  }).catch(() => fetch(local, options));
 };
 
 const ChatHistory = ({ activeChat }) => {
   const [messages, setMessages] = useState([]);
   const [error, setError] = useState(null);
-  // playingTTSId tracks which assistant block’s TTS is active
   const [playingTTSId, setPlayingTTSId] = useState(null);
-  // loadingTTSId tracks which TTS audio is pending from the backend
   const [loadingTTSId, setLoadingTTSId] = useState(null);
   const bottomRef = useRef(null);
 
-  // Refs to track current audio object and polling interval
+  // refs to manage audio & polling
   const currentAudioRef = useRef(null);
-  const pollingIntervalRef = useRef(null);
+  const pollingRef = useRef(null);
 
+  // Fetch chat_history.json
   const fetchChatHistory = (sessionId) => {
-    const endpoint = `/api/database/file?session=${sessionId}&filepath=chat_history.json`;
-    fetchWithFallback(endpoint)
-      .then((response) => {
-        if (!response.ok) throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-        return response.json();
+    fetchWithFallback(`/api/database/file?session=${sessionId}&filepath=chat_history.json`)
+      .then(res => {
+        if (!res.ok) throw new Error(res.statusText);
+        return res.json();
       })
-      .then((data) => {
-        if (!data || !data.content) throw new Error("Missing 'content' field in response");
-
-        let parsed;
-        try {
-          parsed = JSON.parse(data.content);
-        } catch (err) {
-          throw new Error("Failed to parse inner JSON in 'content'");
-        }
-
-        if (!parsed.chat_history || !Array.isArray(parsed.chat_history)) {
-          throw new Error("Parsed chat history is invalid or not an array");
-        }
-
-        setMessages(parsed.chat_history);
+      .then(data => {
+        const parsed = JSON.parse(data.content);
+        setMessages(parsed.chat_history || []);
         setError(null);
       })
-      .catch((err) => {
-        console.error("ChatHistory fetch error:", err);
-        setMessages([]);
+      .catch(err => {
+        console.error(err);
         setError("⚠️ Failed to load chat history.");
+        setMessages([]);
       });
   };
 
   useEffect(() => {
-    if (!activeChat) return;
-    fetchChatHistory(activeChat);
+    if (activeChat) fetchChatHistory(activeChat);
   }, [activeChat]);
 
+  // scroll to bottom on new messages
   useEffect(() => {
-    if (bottomRef.current) {
-      bottomRef.current.scrollIntoView({ behavior: "auto" });
-    }
+    bottomRef.current?.scrollIntoView({ behavior: "auto" });
   }, [messages]);
 
-  // Poll for notifications to update chat history if modified
+  // watch for file-change notifications
   useEffect(() => {
-    const interval = setInterval(() => {
-      const endpoint = "/api/database/notifications";
-      fetchWithFallback(endpoint)
-        .then((res) => res.json())
-        .then((notifications) => {
-          if (!Array.isArray(notifications) || notifications.length === 0) return;
-
-          const updated = notifications.find((n) => (
-            n.event_type === "modified" &&
+    const id = setInterval(() => {
+      fetchWithFallback("/api/database/notifications")
+        .then(res => res.json())
+        .then(notes => {
+          if (!Array.isArray(notes)) return;
+          if (notes.some(n =>
+            n.event_type==="modified" &&
             !n.is_directory &&
             n.src_path.includes(`chat_${activeChat}\\chat_history.json`)
-          ));
-
-          if (updated) {
-            console.log(`[Watcher] Detected update for chat ${activeChat}`);
+          )) {
             fetchChatHistory(activeChat);
           }
-        })
-        .catch((err) => {
-          console.warn("Notification polling failed:", err);
         });
     }, 3000);
-
-    return () => clearInterval(interval);
+    return () => clearInterval(id);
   }, [activeChat]);
 
-  // Poll for the TTS audio file until it is available, then play it.
+  // Starts polling until the .wav appears, then plays
   const startPollingAudio = (identifier) => {
-    const encodedIdentifier = encodeURIComponent(identifier);
-    const url = `http://localhost:5000/api/tts/chat_${activeChat}/${encodedIdentifier}.wav`;
-    console.log("Polling for TTS file at", url);
-    pollingIntervalRef.current = setInterval(() => {
-      // Use HEAD request to check if file exists
+    const encoded = encodeURIComponent(identifier);
+    const url = `http://localhost:5000/api/tts/chat_${activeChat}/${encoded}.wav`;
+
+    pollingRef.current = setInterval(() => {
       fetch(url, { method: "HEAD" })
-        .then((response) => {
-          if (response.ok) {
-            clearInterval(pollingIntervalRef.current);
-            pollingIntervalRef.current = null;
-            const audio = new Audio(url);
-            // When playback starts, clear the loading state
+        .then(res => {
+          if (res.ok) {
+            clearInterval(pollingRef.current);
+            pollingRef.current = null;
             setLoadingTTSId(null);
-            // Store the current audio information
+
+            const audio = new Audio(url);
             currentAudioRef.current = { identifier, audio };
-            // When playback ends, clear the playing state.
+
             audio.addEventListener("ended", () => {
-              currentAudioRef.current = null;
               setPlayingTTSId(null);
-              console.log(`[TTS] Playback ended for ${identifier}`);
+              currentAudioRef.current = null;
             });
+
             audio.play();
-            console.log("[TTS] Audio playing for", identifier);
           }
         })
-        .catch((err) => {
-          console.log("[TTS] Audio file not available yet...", err);
-        });
+        .catch(() => {/* keep polling */});
     }, 1000);
   };
 
-  // Handle click on the speaker button for a given assistant-only index.
+  // Main click handler
   const handleSpeakerClick = (assistantIndex) => {
     if (!activeChat) return;
     const identifier = `chat_${activeChat}#${assistantIndex}`;
+    const encoded = encodeURIComponent(identifier);
+    const url = `http://localhost:5000/api/tts/chat_${activeChat}/${encoded}.wav`;
 
-    // If this same identifier is already playing, stop playback.
+    // 1) If already playing this block, stop it
     if (playingTTSId === identifier) {
-      if (currentAudioRef.current) {
-        currentAudioRef.current.audio.pause();
-        currentAudioRef.current.audio.currentTime = 0;
-      }
-      if (pollingIntervalRef.current) {
-        clearInterval(pollingIntervalRef.current);
-        pollingIntervalRef.current = null;
-      }
+      currentAudioRef.current?.audio.pause();
+      currentAudioRef.current.audio.currentTime = 0;
+      clearInterval(pollingRef.current);
       setPlayingTTSId(null);
       setLoadingTTSId(null);
-      console.log(`[TTS] Stopped audio for ${identifier}`);
       return;
     }
 
-    // If some other TTS is playing, stop it first.
-    if (playingTTSId && currentAudioRef.current) {
-      currentAudioRef.current.audio.pause();
+    // 2) If another TTS is playing, stop that first
+    if (playingTTSId) {
+      currentAudioRef.current?.audio.pause();
       currentAudioRef.current.audio.currentTime = 0;
-      if (pollingIntervalRef.current) {
-        clearInterval(pollingIntervalRef.current);
-        pollingIntervalRef.current = null;
-      }
+      clearInterval(pollingRef.current);
       setPlayingTTSId(null);
       setLoadingTTSId(null);
       currentAudioRef.current = null;
     }
 
-    // Set the playing identifier and mark it as loading.
-    setPlayingTTSId(identifier);
-    setLoadingTTSId(identifier);
+    // 3) HEAD-check to see if file already exists
+    fetch(url, { method: "HEAD" })
+      .then(res => {
+        if (res.ok) {
+          // File exists → play immediately
+          setPlayingTTSId(identifier);
+          setLoadingTTSId(null);
 
-    // Send the TTS request with the compact identifier.
-    const payload = {
-      message: `tts (${identifier})`,
-      chat_session: activeChat,
-      timestamp: new Date().toISOString()
-    };
+          const audio = new Audio(url);
+          currentAudioRef.current = { identifier, audio };
+          audio.addEventListener("ended", () => setPlayingTTSId(null));
+          audio.play();
+        } else {
+          // Not there yet → request TTS then poll
+          setPlayingTTSId(identifier);
+          setLoadingTTSId(identifier);
 
-    fetchWithFallback("/api/cli-message", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload)
-    })
-      .then((res) => res.json())
-      .then((data) => {
-        console.log("[TTS] Sent:", data);
-        // Start polling for the TTS audio file.
-        startPollingAudio(identifier);
+          fetchWithFallback("/api/cli-message", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              message: `tts (${identifier})`,
+              chat_session: activeChat,
+              timestamp: new Date().toISOString()
+            })
+          })
+            .then(() => startPollingAudio(identifier))
+            .catch(err => {
+              console.error(err);
+              setPlayingTTSId(null);
+              setLoadingTTSId(null);
+            });
+        }
       })
-      .catch((err) => {
-        console.error("[TTS] Error:", err);
-        setPlayingTTSId(null);
-        setLoadingTTSId(null);
+      .catch(() => {
+        // Network error on HEAD → treat as “not there yet”
+        setPlayingTTSId(identifier);
+        setLoadingTTSId(identifier);
+        fetchWithFallback("/api/cli-message", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            message: `tts (${identifier})`,
+            chat_session: activeChat,
+            timestamp: new Date().toISOString()
+          })
+        })
+          .then(() => startPollingAudio(identifier))
+          .catch(err => {
+            console.error(err);
+            setPlayingTTSId(null);
+            setLoadingTTSId(null);
+          });
       });
   };
 
-  if (error) {
-    return <div className="chat-history error-message">{error}</div>;
-  }
+  if (error) return <div className="chat-history error-message">{error}</div>;
 
   let assistantCounter = 0;
 
   return (
     <div className="chat-history">
-      {messages.map((msg, index) => {
-        if (!msg || typeof msg !== "object") return null;
-
-        if (msg.role === "assistant") {
-          const currentAssistantIndex = assistantCounter++;
-          let prefix = "";
-          let content = msg.content || "";
-          const newlineIndex = content.indexOf("\n");
-          if (newlineIndex !== -1 && newlineIndex < 20) {
-            prefix = content.substring(0, newlineIndex);
-            content = content.substring(newlineIndex + 1);
-          }
-
-          const currentIdentifier = `chat_${activeChat}#${currentAssistantIndex}`;
+      {messages.map((msg, idx) => {
+        if (msg.role !== "assistant") {
           return (
-            <div key={index} className="message-container assistant-align hover-group">
-              {prefix && <div className="message-bar-left">{prefix}</div>}
-              <div className="message assistant-message">{content}</div>
-              <button
-                className={`speaker-button-below ${
-                  playingTTSId === currentIdentifier ? "active" : ""
-                }`}
-                onClick={() => handleSpeakerClick(currentAssistantIndex)}
-              >
-                {playingTTSId === currentIdentifier && loadingTTSId === currentIdentifier ? (
-                  <img src="/loading-loading-forever.gif" alt="Loading" />
-                ) : (
-                  <img src={speakerIcon} alt="Speaker" />
-                )}
-              </button>
+            <div key={idx} className="message-container user-align">
+              <div className="message user-message">{msg.content}</div>
             </div>
           );
         }
 
+        const aiIndex = assistantCounter++;
+        const idStr = `chat_${activeChat}#${aiIndex}`;
+        let prefix = "";
+        let content = msg.content || "";
+        const nl = content.indexOf("\n");
+        if (nl !== -1 && nl < 20) {
+          prefix = content.slice(0, nl);
+          content = content.slice(nl + 1);
+        }
+
         return (
-          <div key={index} className="message-container user-align">
-            <div className="message user-message">{msg.content}</div>
+          <div key={idx} className="message-container assistant-align hover-group">
+            {prefix && <div className="message-bar-left">{prefix}</div>}
+            <div className="message assistant-message">{content}</div>
+            <button
+              className={`speaker-button-below ${
+                playingTTSId === idStr ? "active" : ""
+              }`}
+              onClick={() => handleSpeakerClick(aiIndex)}
+            >
+              {loadingTTSId === idStr ? (
+                <img src="/loading-loading-forever.gif" alt="loading" />
+              ) : (
+                <img src={speakerIcon} alt="speaker" />
+              )}
+            </button>
           </div>
         );
       })}

@@ -9,6 +9,8 @@ const MCQ = () => {
   const [submittedAnswers, setSubmittedAnswers] = useState({});
   const [mcqFiles, setMcqFiles] = useState([]);
   const [currentIndex, setCurrentIndex] = useState(0);
+  const [isCreating, setIsCreating] = useState(false);
+  const [pollingInterval, setPollingInterval] = useState(null);
 
   const navigate = useNavigate();
   const location = useLocation();
@@ -37,26 +39,20 @@ const MCQ = () => {
       .catch(() => fetch(localUrl, options));
   };
 
+  const loadFileList = async () => {
+    const listRes = await fetchWithFallback(`/api/ai-pocket-tutor/database/files`);
+    const listData = await listRes.json();
+    const allFiles = listData[sessionId] || [];
+
+    return allFiles.filter(f => /^mcqs(_\d+)?\.json$/i.test(f)).sort();
+  };
+
   useEffect(() => {
     if (!sessionId) return;
 
-    const loadFileList = async () => {
-      try {
-        const listRes = await fetchWithFallback(`/api/ai-pocket-tutor/database/files`);
-        const listData = await listRes.json();
-        const allFiles = listData[sessionId] || [];
-
-        const matched = allFiles.filter(f =>
-          /^mcqs(_\d+)?\.json$/i.test(f)
-        ).sort();
-
-        setMcqFiles(matched);
-      } catch (err) {
-        console.error("Failed to list MCQ files:", err);
-      }
-    };
-
-    loadFileList();
+    loadFileList()
+      .then(setMcqFiles)
+      .catch((err) => console.error("Failed to list MCQ files:", err));
   }, [sessionId]);
 
   useEffect(() => {
@@ -80,6 +76,23 @@ const MCQ = () => {
       });
   }, [currentIndex, mcqFiles, sessionId]);
 
+  useEffect(() => {
+    if (!isCreating) return;
+
+    const interval = setInterval(async () => {
+      const updatedList = await loadFileList();
+      if (updatedList.length > mcqFiles.length) {
+        setIsCreating(false);
+        clearInterval(interval);
+        setMcqFiles(updatedList);
+        setCurrentIndex(updatedList.length - 1); // Go to the new file
+      }
+    }, 2000);
+
+    setPollingInterval(interval);
+    return () => clearInterval(interval);
+  }, [isCreating]);
+
   const handleSelect = (index, value) => {
     setSelectedAnswers((prev) => ({ ...prev, [index]: value }));
   };
@@ -96,7 +109,9 @@ const MCQ = () => {
   };
 
   const handleCreateMCQMessage = () => {
-    if (!sessionId) return;
+    if (!sessionId || isCreating) return;
+
+    setIsCreating(true);
 
     const payload = {
       message: "(MCQ)",
@@ -118,6 +133,7 @@ const MCQ = () => {
       })
       .catch((err) => {
         console.error("❌ Error sending (MCQ) message:", err);
+        setIsCreating(false);
       });
   };
 
@@ -151,9 +167,10 @@ const MCQ = () => {
           </div>
           <button
             onClick={handleCreateMCQMessage}
-            className="bg-blue-600 px-4 py-1 rounded"
+            disabled={isCreating}
+            className="bg-blue-600 px-4 py-1 rounded disabled:opacity-50"
           >
-            Create
+            {isCreating ? "Creating..." : "Create"}
           </button>
         </div>
       </div>

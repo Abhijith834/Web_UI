@@ -17,7 +17,7 @@ const fetchWithFallback = (endpoint, options = {}) => {
   const ngrokUrl = `https://mint-jackal-publicly.ngrok-free.app${endpoint}`;
   const ngrokHeaders = {
     ...options.headers,
-    "ngrok-skip-browser-warning": "true"
+    "ngrok-skip-browser-warning": "true",
   };
   return fetch(ngrokUrl, { ...options, headers: ngrokHeaders })
     .then((response) => {
@@ -33,79 +33,97 @@ const fetchWithFallback = (endpoint, options = {}) => {
 const MessageBar = ({ activeChat, isStarted, handleStart }) => {
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
+  const [isRecording, setIsRecording] = useState(false);
+  const mediaRecorderRef = useRef(null);
+  const audioChunksRef = useRef([]);
   const fileInputRef = useRef(null);
   const navigate = useNavigate();
+
+  // Helper to send CLI messages
+  const sendCliMessage = async (msg) => {
+    if (!isStarted) return;
+    const payload = {
+      message: msg,
+      chat_session: activeChat,
+      timestamp: new Date().toISOString(),
+    };
+    try {
+      const res = await fetchWithFallback("/api/cli-message", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      if (!res.ok) {
+        console.error("[sendCliMessage] HTTP error:", res.status);
+      } else {
+        console.log("[sendCliMessage] success:", msg);
+      }
+    } catch (e) {
+      console.error("[sendCliMessage] network error:", e);
+    }
+  };
 
   const handleSend = () => {
     if (!isStarted) return;
     const payload = {
       message,
       chat_session: activeChat,
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
     };
     fetchWithFallback("/api/cli-message", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload)
+      body: JSON.stringify(payload),
     }).then(() => setMessage(""));
   };
 
   const handleMic = async () => {
     if (!isStarted) return;
-  
-    // URL of the audio file in the public folder
-    const fileUrl = "/OSR_us_000_0032_8k.wav";
-  
-    try {
-      // Fetch the audio file as a blob
-      const response = await fetch(fileUrl);
-      const blob = await response.blob();
-  
-      const formData = new FormData();
-      formData.append("audio", blob, "OSR_us_000_0032_8k.wav");
-      formData.append("session_id", activeChat);
-  
-      // Send the audio file to the backend for saving.
-      const res = await fetchWithFallback("/api/transcribe", {
-        method: "POST",
-        body: formData,
-      });
-      if (!res.ok) {
-        throw new Error(`Failed to send audio: ${res.statusText}`);
+    if (!isRecording) {
+      // start recording
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        const recorder = new MediaRecorder(stream);
+        audioChunksRef.current = [];
+        recorder.ondataavailable = (e) => {
+          if (e.data.size > 0) audioChunksRef.current.push(e.data);
+        };
+        recorder.onstop = async () => {
+          const blob = new Blob(audioChunksRef.current, { type: "audio/webm" });
+          const timestamp = Date.now();
+          const filename = `${timestamp}.webm`;
+          const formData = new FormData();
+          formData.append("audio", blob, filename);
+          formData.append("session_id", activeChat);
+
+          try {
+            const res = await fetchWithFallback("/api/transcribe", {
+              method: "POST",
+              body: formData,
+            });
+            if (res.ok) {
+              console.log("✅ Audio saved as", filename);
+            } else {
+              console.warn(`⚠️ /api/transcribe returned ${res.status}`);
+            }
+          } catch (uploadErr) {
+            console.error("❌ Error uploading audio:", uploadErr);
+          }
+
+          await sendCliMessage(`stt (${timestamp})`);
+        };
+        recorder.start();
+        mediaRecorderRef.current = recorder;
+        setIsRecording(true);
+      } catch (err) {
+        console.error("❌ Could not start recording:", err);
       }
-      const data = await res.json();
-      console.log("✅ Audio file sent to backend:", data);
-  
-      // Ensure the backend returned a URL
-      if (!data.url) {
-        throw new Error("Backend did not return a URL");
-      }
-  
-      // Now send a CLI message with the save location in the format:
-      // stt (save location)
-      const cliPayload = {
-        message: `stt (${data.url})`,
-        chat_session: activeChat,
-        timestamp: new Date().toISOString(),
-      };
-  
-      const cliRes = await fetchWithFallback("/api/cli-message", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(cliPayload),
-      });
-      if (!cliRes.ok) {
-        throw new Error(`CLI message failed: ${cliRes.statusText}`);
-      }
-      const cliData = await cliRes.json();
-      console.log("✅ CLI message sent:", cliData);
-  
-      // Both endpoints responded with JSON data.
-    } catch (err) {
-      console.error("❌ Error in mic handler:", err);
+    } else {
+      // stop recording
+      mediaRecorderRef.current.stop();
+      setIsRecording(false);
     }
   };
-  
 
   const handleGoToMCQ = () => {
     if (!isStarted) return;
@@ -117,12 +135,14 @@ const MessageBar = ({ activeChat, isStarted, handleStart }) => {
     try {
       const res = await fetch("http://localhost:5000/api/ai-pocket-tutor/database/files");
       const data = await res.json();
-      const sessionFiles = data[activeChat];
-      const hasPdf = sessionFiles?.some((f) => f.startsWith("pdf\\") || f.startsWith("pdf/"));
+      const sessionFiles = data[activeChat] || [];
+      const hasPdf = sessionFiles.some((f) => f.match(/^pdf[\\/]/i));
 
       if (hasPdf) {
-        const pdfFile = sessionFiles.find(f => f.startsWith("pdf\\") || f.startsWith("pdf/"));
-        const fileUrl = `http://localhost:5000/api/database/pdf?session=${activeChat}&filepath=${encodeURIComponent(pdfFile)}`;
+        const pdfFile = sessionFiles.find((f) => f.match(/^pdf[\\/]/i));
+        const fileUrl = `http://localhost:5000/api/database/pdf?session=${activeChat}&filepath=${encodeURIComponent(
+          pdfFile
+        )}`;
         window.open(fileUrl, "_blank");
       } else {
         fileInputRef.current.click();
@@ -136,40 +156,30 @@ const MessageBar = ({ activeChat, isStarted, handleStart }) => {
   const handleFileChange = async (e) => {
     const files = e.target.files;
     if (!files.length) return;
-  
     const formData = new FormData();
     formData.append("file", files[0]);
     formData.append("session_id", activeChat);
-  
+
     try {
       const res = await fetch("http://localhost:5000/api/upload", {
         method: "POST",
         body: formData,
       });
-  
       const result = await res.json();
-  
       if (res.ok) {
         console.log("✅ File received by backend:", result.path);
-  
-        // 🔥 Fix double backslashes
         const normalizedPath = result.path.replace(/\\\\/g, "\\");
         const formattedMessage = `file (${normalizedPath})`;
-        console.log(formattedMessage);
         alert(formattedMessage);
-
-  
-        await fetch("http://localhost:5000/api/cli-message", {
+        await fetchWithFallback("/api/cli-message", {
           method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
+          headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             message: formattedMessage,
-            timestamp: Date.now(),
+            chat_session: activeChat,
+            timestamp: new Date().toISOString(),
           }),
         });
-  
         console.log("📤 CLI message sent:", formattedMessage);
       } else {
         console.error("❌ Upload failed:", result.error);
@@ -180,22 +190,21 @@ const MessageBar = ({ activeChat, isStarted, handleStart }) => {
       alert("Something went wrong while uploading the file.");
     }
   };
-  
 
   const onStart = () => {
     setLoading(true);
-    handleStart(activeChat); // optimistic UI update
+    handleStart(activeChat);
 
     const payload = {
       message: `chat (${activeChat})`,
       chat_session: activeChat,
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
     };
 
     fetchWithFallback("/api/cli-message", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload)
+      body: JSON.stringify(payload),
     })
       .then(() => {
         const poll = setInterval(() => {
@@ -221,7 +230,9 @@ const MessageBar = ({ activeChat, isStarted, handleStart }) => {
       <div className="message-bar-container">
         <div className="icon-button-container left-button">
           <button
-            className={`icon-button ${!isStarted ? "opacity-50 pointer-events-none" : ""}`}
+            className={`icon-button ${
+              !isStarted ? "opacity-50 pointer-events-none" : ""
+            }`}
             onClick={handleFileButtonClick}
           >
             <img src={documentIcon} alt="Document" className="w-6 h-6" />
@@ -249,7 +260,9 @@ const MessageBar = ({ activeChat, isStarted, handleStart }) => {
           )}
           <input
             type="text"
-            className={`message-input ${!isStarted ? "opacity-50 pointer-events-none" : ""}`}
+            className={`message-input ${
+              !isStarted ? "opacity-50 pointer-events-none" : ""
+            }`}
             placeholder="Type a message..."
             value={message}
             onChange={(e) => setMessage(e.target.value)}
@@ -258,13 +271,17 @@ const MessageBar = ({ activeChat, isStarted, handleStart }) => {
           <div className="inner-buttons flex items-center gap-2 ml-2">
             <button
               onClick={handleSend}
-              className={`icon-button ${!isStarted ? "opacity-50 pointer-events-none" : ""}`}
+              className={`icon-button ${
+                !isStarted ? "opacity-50 pointer-events-none" : ""
+              }`}
             >
               <img src={sendIcon} alt="Send" className="w-6 h-6" />
             </button>
             <button
               onClick={handleMic}
-              className={`icon-button ${!isStarted ? "opacity-50 pointer-events-none" : ""}`}
+              className={`icon-button ${
+                !isStarted ? "opacity-50 pointer-events-none" : ""
+              } ${isRecording ? "recording" : ""}`}
             >
               <img src={micIcon} alt="Mic" className="w-6 h-6" />
             </button>
@@ -274,7 +291,9 @@ const MessageBar = ({ activeChat, isStarted, handleStart }) => {
         <div className="icon-button-container right-button">
           <button
             onClick={handleGoToMCQ}
-            className={`icon-button ${!isStarted ? "opacity-50 pointer-events-none" : ""}`}
+            className={`icon-button ${
+              !isStarted ? "opacity-50 pointer-events-none" : ""
+            }`}
           >
             <img src={checkboxIcon} alt="MCQ" className="w-6 h-6" />
           </button>
