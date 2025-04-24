@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import MessageBar from "./MessageBar";
 
-// Helper for ngrok/local fallback
+// 🔄 CHANGED: helper to route through ngrok or localhost
 const fetchWithFallback = (endpoint, options = {}) => {
   const local = `http://localhost:5000${endpoint}`;
   if (["localhost", "127.0.0.1"].includes(window.location.hostname)) {
@@ -27,12 +27,15 @@ const Learning = ({ show, onClose, isStarted, handleStart }) => {
     e.preventDefault();
     let sessionId;
     try {
+      // 🔄 CHANGED: session-state via fallback
       const resp = await fetchWithFallback("/api/database/session-state");
       sessionId = (await resp.json()).session_id;
     } catch {
       console.error("Failed to fetch session state");
       return;
     }
+
+    // 🔄 CHANGED: send CLI message via fallback
     await fetchWithFallback("/api/cli-message", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -50,6 +53,7 @@ const Learning = ({ show, onClose, isStarted, handleStart }) => {
       attempts++;
       try {
         const url = `/api/database/file?session=${sessionId}&filepath=pdf_options.json`;
+        // 🔄 CHANGED: polling via fallback
         const fileResp = await fetchWithFallback(url);
         if (fileResp.ok) {
           const links = JSON.parse((await fileResp.json()).content);
@@ -66,12 +70,14 @@ const Learning = ({ show, onClose, isStarted, handleStart }) => {
   const handleSelect = async number => {
     let sessionId;
     try {
+      // 🔄 CHANGED: session-state via fallback
       const resp = await fetchWithFallback("/api/database/session-state");
       sessionId = (await resp.json()).session_id;
     } catch {
       console.error("Failed to fetch session state for select");
       return;
     }
+    // 🔄 CHANGED: send selection via fallback
     await fetchWithFallback("/api/cli-message", {
       method: "POST",
       headers: { "Content-Type": "application/json" },

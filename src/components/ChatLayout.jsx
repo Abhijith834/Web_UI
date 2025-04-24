@@ -12,9 +12,21 @@ const ChatLayout = () => {
     setStartedChats({ [chatId]: true }); // only one chat active at a time
   };
 
+  const fetchWithFallback = (endpoint, options = {}) => {
+    const localUrl = `http://localhost:5000${endpoint}`;
+    if (["localhost", "127.0.0.1"].includes(window.location.hostname)) {
+      return fetch(localUrl, options);
+    }
+    const ngrokUrl = `https://mint-jackal-publicly.ngrok-free.app${endpoint}`;
+    const headers = { ...options.headers, "ngrok-skip-browser-warning": "true" };
+    return fetch(ngrokUrl, { ...options, headers })
+      .then(res => { if (!res.ok) throw new Error(res.statusText); return res })
+      .catch(() => fetch(localUrl, options));
+  };
+
   useEffect(() => {
     // Fetch session-state from API on initial load
-    fetch("http://localhost:5000/api/database/session-state")
+    fetchWithFallback("/api/database/session-state")
       .then((res) => res.json())
       .then((data) => {
         if (data.session_id) {

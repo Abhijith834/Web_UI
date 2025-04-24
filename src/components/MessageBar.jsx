@@ -6,6 +6,7 @@ import sendIcon from "../assets/send.svg";
 import micIcon from "../assets/mic.svg";
 import { useNavigate } from "react-router-dom";
 
+// 🔄 CHANGED: Helper now covers both localhost and ngrok
 const fetchWithFallback = (endpoint, options = {}) => {
   const localUrl = `http://localhost:5000${endpoint}`;
   if (
@@ -48,7 +49,7 @@ const MessageBar = ({ activeChat, isStarted, handleStart }) => {
       timestamp: new Date().toISOString(),
     };
     try {
-      const res = await fetchWithFallback("/api/cli-message", {
+      const res = await fetchWithFallback("/api/cli-message", {  // 🔄 CHANGED
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
@@ -70,7 +71,7 @@ const MessageBar = ({ activeChat, isStarted, handleStart }) => {
       chat_session: activeChat,
       timestamp: new Date().toISOString(),
     };
-    fetchWithFallback("/api/cli-message", {
+    fetchWithFallback("/api/cli-message", {  // 🔄 CHANGED
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
@@ -97,7 +98,7 @@ const MessageBar = ({ activeChat, isStarted, handleStart }) => {
           formData.append("session_id", activeChat);
 
           try {
-            const res = await fetchWithFallback("/api/transcribe", {
+            const res = await fetchWithFallback("/api/transcribe", {  // 🔄 CHANGED
               method: "POST",
               body: formData,
             });
@@ -133,14 +134,19 @@ const MessageBar = ({ activeChat, isStarted, handleStart }) => {
   const handleFileButtonClick = async () => {
     if (!isStarted) return;
     try {
-      const res = await fetch("http://localhost:5000/api/ai-pocket-tutor/database/files");
+      // 🔄 CHANGED: list files via fallback helper
+      const res = await fetchWithFallback("/api/ai-pocket-tutor/database/files");  
       const data = await res.json();
       const sessionFiles = data[activeChat] || [];
       const hasPdf = sessionFiles.some((f) => f.match(/^pdf[\\/]/i));
 
       if (hasPdf) {
         const pdfFile = sessionFiles.find((f) => f.match(/^pdf[\\/]/i));
-        const fileUrl = `http://localhost:5000/api/database/pdf?session=${activeChat}&filepath=${encodeURIComponent(
+        // 🔄 CHANGED: dynamic base URL for preview
+        const base = ["localhost","127.0.0.1"].includes(window.location.hostname)
+          ? "http://localhost:5000"
+          : "https://mint-jackal-publicly.ngrok-free.app";
+        const fileUrl = `${base}/api/database/pdf?session=${activeChat}&filepath=${encodeURIComponent(
           pdfFile
         )}`;
         window.open(fileUrl, "_blank");
@@ -161,7 +167,8 @@ const MessageBar = ({ activeChat, isStarted, handleStart }) => {
     formData.append("session_id", activeChat);
 
     try {
-      const res = await fetch("http://localhost:5000/api/upload", {
+      // 🔄 CHANGED: upload via fallback helper
+      const res = await fetchWithFallback("/api/upload", {  
         method: "POST",
         body: formData,
       });
@@ -171,7 +178,7 @@ const MessageBar = ({ activeChat, isStarted, handleStart }) => {
         const normalizedPath = result.path.replace(/\\\\/g, "\\");
         const formattedMessage = `file (${normalizedPath})`;
         alert(formattedMessage);
-        await fetchWithFallback("/api/cli-message", {
+        await fetchWithFallback("/api/cli-message", {  // 🔄 CHANGED
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -201,14 +208,15 @@ const MessageBar = ({ activeChat, isStarted, handleStart }) => {
       timestamp: new Date().toISOString(),
     };
 
-    fetchWithFallback("/api/cli-message", {
+    fetchWithFallback("/api/cli-message", {  // 🔄 CHANGED
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
     })
       .then(() => {
         const poll = setInterval(() => {
-          fetch("http://localhost:5000/api/database/session-state")
+          // 🔄 CHANGED: poll session-state via fallback
+          fetchWithFallback("/api/database/session-state")  
             .then((res) => res.json())
             .then((data) => {
               if (data.session_id === activeChat) {

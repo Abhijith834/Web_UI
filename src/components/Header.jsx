@@ -4,7 +4,7 @@ import deleteIcon from "../assets/delete.svg";
 import Learning from "./Learning";
 import MessageBar from "./MessageBar";
 
-// Helper to fetch via ngrok or localhost
+// 🔄 CHANGED: helper to route through ngrok or localhost
 const fetchWithFallback = (endpoint, options = {}) => {
   const localUrl = `http://localhost:5000${endpoint}`;
   if (["localhost", "127.0.0.1"].includes(window.location.hostname)) {
@@ -28,7 +28,7 @@ const Header = ({ setActiveChat, startedChats, activeChat, handleStart }) => {
 
   const toggleMenu = () => setIsMenuOpen((p) => !p);
 
-  // Load list of chat folders
+  // 🔄 CHANGED: load list of chat folders via fallback helper
   const loadChats = () => {
     fetchWithFallback("/api/ai-pocket-tutor/database/folders")
       .then((r) => r.json())
@@ -43,7 +43,7 @@ const Header = ({ setActiveChat, startedChats, activeChat, handleStart }) => {
       .catch(console.error);
   };
 
-  // Sync active session; one reload after closing popup
+  // 🔄 CHANGED: sync active session via fallback helper
   const loadActiveSession = () => {
     fetchWithFallback("/api/database/session-state")
       .then((r) => r.json())
@@ -70,13 +70,17 @@ const Header = ({ setActiveChat, startedChats, activeChat, handleStart }) => {
     return () => clearInterval(interval);
   }, [showSearch, refreshAfterClose]);
 
-  // Create new chat; opens popup for learning
+  // 🔄 CHANGED: create new chat message via fallback helper
   const addNewChat = (type) => {
     const msg = type === "normal" ? "new chat (normal)" : "new chat (learning)";
     fetchWithFallback("/api/cli-message", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ message: msg, chat_session: activeChat, timestamp: new Date().toISOString() }),
+      body: JSON.stringify({
+        message: msg,
+        chat_session: activeChat,
+        timestamp: new Date().toISOString(),
+      }),
     }).catch(console.error);
     if (type === "learning") setShowSearch(true);
   };
@@ -84,13 +88,11 @@ const Header = ({ setActiveChat, startedChats, activeChat, handleStart }) => {
   const deleteChat = (i) => setChats((p) => p.filter((_, idx) => idx !== i));
   const handleChatClick = (id) => setActiveChat(id);
 
-  // Close popup and arm reload
   const closeSearch = () => {
     setShowSearch(false);
     setRefreshAfterClose(true);
   };
 
-  // Handle search term
   const handleSearch = (term) => {
     console.log("Search term:", term);
     // integrate your learning-search API here
@@ -135,7 +137,11 @@ const Header = ({ setActiveChat, startedChats, activeChat, handleStart }) => {
 
       {/* Header bar */}
       <header className="header flex items-center px-4 py-3">
-        <button className="text-white focus:outline-none" onClick={toggleMenu} aria-expanded={isMenuOpen}>
+        <button
+          className="text-white focus:outline-none"
+          onClick={toggleMenu}
+          aria-expanded={isMenuOpen}
+        >
           <svg className="w-6 h-6" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
           </svg>
@@ -146,7 +152,11 @@ const Header = ({ setActiveChat, startedChats, activeChat, handleStart }) => {
       {/* Learning popup, renders MessageBar inside */}
       <Learning show={showSearch} onClose={closeSearch} onSearch={handleSearch}>
         <div className="w-full fixed bottom-0">
-          <MessageBar activeChat={activeChat} isStarted={!!startedChats[activeChat]} handleStart={handleStart} />
+          <MessageBar
+            activeChat={activeChat}
+            isStarted={!!startedChats[activeChat]}
+            handleStart={handleStart}
+          />
         </div>
       </Learning>
     </>

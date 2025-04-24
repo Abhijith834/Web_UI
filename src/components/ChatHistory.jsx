@@ -76,17 +76,22 @@ const ChatHistory = ({ activeChat }) => {
   // Starts polling until the .wav appears, then plays
   const startPollingAudio = (identifier) => {
     const encoded = encodeURIComponent(identifier);
-    const url = `http://localhost:5000/api/tts/chat_${activeChat}/${encoded}.wav`;
+    // 🔄 CHANGED: dynamic base URL for TTS
+    const base = ["localhost","127.0.0.1"].includes(window.location.hostname)
+      ? "http://localhost:5000"
+      : "https://mint-jackal-publicly.ngrok-free.app";
+    const url = `${base}/api/tts/chat_${activeChat}/${encoded}.wav`;
 
     pollingRef.current = setInterval(() => {
-      fetch(url, { method: "HEAD" })
+      // 🔄 CHANGED: use fallback for HEAD check
+      fetchWithFallback(`/api/tts/chat_${activeChat}/${encoded}.wav`, { method: "HEAD" })
         .then(res => {
           if (res.ok) {
             clearInterval(pollingRef.current);
             pollingRef.current = null;
             setLoadingTTSId(null);
 
-            const audio = new Audio(url);
+            const audio = new Audio(url);  // 🔄 CHANGED: URL comes from dynamic base
             currentAudioRef.current = { identifier, audio };
 
             audio.addEventListener("ended", () => {
@@ -106,7 +111,11 @@ const ChatHistory = ({ activeChat }) => {
     if (!activeChat) return;
     const identifier = `chat_${activeChat}#${assistantIndex}`;
     const encoded = encodeURIComponent(identifier);
-    const url = `http://localhost:5000/api/tts/chat_${activeChat}/${encoded}.wav`;
+    // 🔄 CHANGED: dynamic base URL for TTS
+    const base = ["localhost","127.0.0.1"].includes(window.location.hostname)
+      ? "http://localhost:5000"
+      : "https://mint-jackal-publicly.ngrok-free.app";
+    const url = `${base}/api/tts/chat_${activeChat}/${encoded}.wav`;
 
     // 1) If already playing this block, stop it
     if (playingTTSId === identifier) {
@@ -129,14 +138,15 @@ const ChatHistory = ({ activeChat }) => {
     }
 
     // 3) HEAD-check to see if file already exists
-    fetch(url, { method: "HEAD" })
+    // 🔄 CHANGED: use fallback for HEAD check
+    fetchWithFallback(`/api/tts/chat_${activeChat}/${encoded}.wav`, { method: "HEAD" })
       .then(res => {
         if (res.ok) {
           // File exists → play immediately
           setPlayingTTSId(identifier);
           setLoadingTTSId(null);
 
-          const audio = new Audio(url);
+          const audio = new Audio(url);  // 🔄 CHANGED: dynamic URL
           currentAudioRef.current = { identifier, audio };
           audio.addEventListener("ended", () => setPlayingTTSId(null));
           audio.play();
@@ -145,7 +155,7 @@ const ChatHistory = ({ activeChat }) => {
           setPlayingTTSId(identifier);
           setLoadingTTSId(identifier);
 
-          fetchWithFallback("/api/cli-message", {
+          fetchWithFallback("/api/cli-message", {  // 🔄 CHANGED
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
@@ -166,7 +176,7 @@ const ChatHistory = ({ activeChat }) => {
         // Network error on HEAD → treat as “not there yet”
         setPlayingTTSId(identifier);
         setLoadingTTSId(identifier);
-        fetchWithFallback("/api/cli-message", {
+        fetchWithFallback("/api/cli-message", {  // 🔄 CHANGED
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
