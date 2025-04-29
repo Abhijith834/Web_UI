@@ -55,8 +55,8 @@
 
 /* Assistant message bubble styling with margin-top calculated from prefix height plus gap */
 .assistant-message {
-  background-color: #f1f1f1;
-  color: black;
+  background-color: #282828dc;
+  color: rgb(255, 254, 254);
   padding: 0.75rem;
   border-radius: 1rem;
   max-width: 70%; /* Default max width */
@@ -68,7 +68,7 @@
 
 /* User messages styling */
 .user-message {
-  background-color: #0078ff;
+  background-color: #0077ffe7;
   color: white;
   padding: 0.75rem;
   border-radius: 1rem;
