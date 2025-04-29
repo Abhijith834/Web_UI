@@ -49,8 +49,7 @@ const MessageBar = ({ activeChat, isStarted, handleStart }) => {
       timestamp: new Date().toISOString(),
     };
     try {
-      const res = await fetchWithFallback("/api/cli-message", {
-        // 🔄 CHANGED
+      const res = await fetchWithFallback("/api/cli-message", {  // 🔄 CHANGED
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
@@ -72,8 +71,7 @@ const MessageBar = ({ activeChat, isStarted, handleStart }) => {
       chat_session: activeChat,
       timestamp: new Date().toISOString(),
     };
-    fetchWithFallback("/api/cli-message", {
-      // 🔄 CHANGED
+    fetchWithFallback("/api/cli-message", {  // 🔄 CHANGED
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
@@ -85,9 +83,7 @@ const MessageBar = ({ activeChat, isStarted, handleStart }) => {
     if (!isRecording) {
       // start recording
       try {
-        const stream = await navigator.mediaDevices.getUserMedia({
-          audio: true,
-        });
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
         const recorder = new MediaRecorder(stream);
         audioChunksRef.current = [];
         recorder.ondataavailable = (e) => {
@@ -102,8 +98,7 @@ const MessageBar = ({ activeChat, isStarted, handleStart }) => {
           formData.append("session_id", activeChat);
 
           try {
-            const res = await fetchWithFallback("/api/transcribe", {
-              // 🔄 CHANGED
+            const res = await fetchWithFallback("/api/transcribe", {  // 🔄 CHANGED
               method: "POST",
               body: formData,
             });
@@ -140,16 +135,7 @@ const MessageBar = ({ activeChat, isStarted, handleStart }) => {
     if (!isStarted) return;
     try {
       // 🔄 CHANGED: list files via fallback helper
-      const res = await fetchWithFallback(
-        "/api/ai-pocket-tutor/database/files",
-        {
-          // add ngrok & custom UA headers for CORB bypass
-          headers: {
-            "ngrok-skip-browser-warning": "true",
-            "User-Agent": "PocketTutor/1.0",
-          },
-        }
-      );
+      const res = await fetchWithFallback("/api/ai-pocket-tutor/database/files");  
       const data = await res.json();
       const sessionFiles = data[activeChat] || [];
       const hasPdf = sessionFiles.some((f) => f.match(/^pdf[\\/]/i));
@@ -157,9 +143,7 @@ const MessageBar = ({ activeChat, isStarted, handleStart }) => {
       if (hasPdf) {
         const pdfFile = sessionFiles.find((f) => f.match(/^pdf[\\/]/i));
         // 🔄 CHANGED: dynamic base URL for preview
-        const base = ["localhost", "127.0.0.1"].includes(
-          window.location.hostname
-        )
+        const base = ["localhost","127.0.0.1"].includes(window.location.hostname)
           ? "http://localhost:5000"
           : "https://mint-jackal-publicly.ngrok-free.app";
         const fileUrl = `${base}/api/database/pdf?session=${activeChat}&filepath=${encodeURIComponent(
@@ -184,7 +168,7 @@ const MessageBar = ({ activeChat, isStarted, handleStart }) => {
 
     try {
       // 🔄 CHANGED: upload via fallback helper
-      const res = await fetchWithFallback("/api/upload", {
+      const res = await fetchWithFallback("/api/upload", {  
         method: "POST",
         body: formData,
       });
@@ -194,8 +178,7 @@ const MessageBar = ({ activeChat, isStarted, handleStart }) => {
         const normalizedPath = result.path.replace(/\\\\/g, "\\");
         const formattedMessage = `file (${normalizedPath})`;
         alert(formattedMessage);
-        await fetchWithFallback("/api/cli-message", {
-          // 🔄 CHANGED
+        await fetchWithFallback("/api/cli-message", {  // 🔄 CHANGED
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -225,21 +208,15 @@ const MessageBar = ({ activeChat, isStarted, handleStart }) => {
       timestamp: new Date().toISOString(),
     };
 
-    fetchWithFallback("/api/cli-message", {
-      // 🔄 CHANGED
+    fetchWithFallback("/api/cli-message", {  // 🔄 CHANGED
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
     })
       .then(() => {
         const poll = setInterval(() => {
-          // poll session-state via fallback
-          fetchWithFallback("/api/database/session-state", {
-            headers: {
-              "ngrok-skip-browser-warning": "true",
-              "User-Agent": "PocketTutor/1.0",
-            },
-          })
+          // 🔄 CHANGED: poll session-state via fallback
+          fetchWithFallback("/api/database/session-state")  
             .then((res) => res.json())
             .then((data) => {
               if (data.session_id === activeChat) {
