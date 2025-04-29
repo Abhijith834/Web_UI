@@ -4,7 +4,7 @@ import deleteIcon from "../assets/delete.svg";
 import Learning from "./Learning";
 import MessageBar from "./MessageBar";
 
-// 🔄 CHANGED: helper to route through ngrok or localhost
+// helper to route through ngrok or localhost
 const fetchWithFallback = (endpoint, options = {}) => {
   const localUrl = `http://localhost:5000${endpoint}`;
   if (["localhost", "127.0.0.1"].includes(window.location.hostname)) {
@@ -28,7 +28,7 @@ const Header = ({ setActiveChat, startedChats, activeChat, handleStart }) => {
 
   const toggleMenu = () => setIsMenuOpen((p) => !p);
 
-  // 🔄 CHANGED: load list of chat folders via fallback helper
+  // load list of chat folders via fallback helper
   const loadChats = () => {
     fetchWithFallback("/api/ai-pocket-tutor/database/folders")
       .then((r) => r.json())
@@ -36,16 +36,24 @@ const Header = ({ setActiveChat, startedChats, activeChat, handleStart }) => {
         if (!data.database_folders) return;
         const list = data.database_folders
           .filter((f) => f.startsWith("chat_"))
-          .map((f) => ({ id: f.split("_")[1], name: `Chat ${f.split("_")[1]}` }))
+          .map((f) => ({
+            id: f.split("_")[1],
+            name: `Chat ${f.split("_")[1]}`,
+          }))
           .sort((a, b) => +a.id - +b.id);
         setChats(list);
       })
       .catch(console.error);
   };
 
-  // 🔄 CHANGED: sync active session via fallback helper
+  // sync active session via fallback helper
   const loadActiveSession = () => {
-    fetchWithFallback("/api/database/session-state")
+    fetchWithFallback("/api/database/session-state", {
+      headers: {
+        "ngrok-skip-browser-warning": "true",
+        "User-Agent": "PocketTutor/1.0",
+      },
+    })
       .then((r) => r.json())
       .then((data) => {
         if (data.session_id && data.session_id !== activeChat) {
@@ -70,7 +78,7 @@ const Header = ({ setActiveChat, startedChats, activeChat, handleStart }) => {
     return () => clearInterval(interval);
   }, [showSearch, refreshAfterClose]);
 
-  // 🔄 CHANGED: create new chat message via fallback helper
+  // create new chat message via fallback helper
   const addNewChat = (type) => {
     const msg = type === "normal" ? "new chat (normal)" : "new chat (learning)";
     fetchWithFallback("/api/cli-message", {
@@ -105,10 +113,16 @@ const Header = ({ setActiveChat, startedChats, activeChat, handleStart }) => {
         <div className="add-chat-container">
           <button className="add-chat-button">+</button>
           <div className="chat-options">
-            <button className="chat-option" onClick={() => addNewChat("normal")}>
+            <button
+              className="chat-option"
+              onClick={() => addNewChat("normal")}
+            >
               Normal
             </button>
-            <button className="chat-option" onClick={() => addNewChat("learning")}>
+            <button
+              className="chat-option"
+              onClick={() => addNewChat("learning")}
+            >
               Learning
             </button>
           </div>
@@ -117,7 +131,9 @@ const Header = ({ setActiveChat, startedChats, activeChat, handleStart }) => {
           {chats.map((c, idx) => (
             <li
               key={c.id}
-              className={`chat-item ${startedChats[c.id] ? "highlighted-chat" : ""}`}
+              className={`chat-item ${
+                startedChats[c.id] ? "highlighted-chat" : ""
+              }`}
               onClick={() => handleChatClick(c.id)}
             >
               <span>{c.name}</span>
@@ -142,8 +158,18 @@ const Header = ({ setActiveChat, startedChats, activeChat, handleStart }) => {
           onClick={toggleMenu}
           aria-expanded={isMenuOpen}
         >
-          <svg className="w-6 h-6" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
+          <svg
+            className="w-6 h-6"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              d="M4 6h16M4 12h16M4 18h16"
+            />
           </svg>
         </button>
         <h1 className="ml-3 text-lg font-semibold">AI Pocket Tutor</h1>
