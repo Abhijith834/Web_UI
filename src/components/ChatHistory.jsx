@@ -84,7 +84,7 @@ const ChatHistory = ({ activeChat }) => {
 
     pollingRef.current = setInterval(() => {
       // 🔄 CHANGED: use fallback for HEAD check
-      fetchWithFallback(`/api/tts/chat_${activeChat}/${encoded}.wav`, { method: "HEAD" })
+      fetchWithFallback(`/api/tts/chat_${activeChat}/${encoded}.wav`, { method: "HEAD", mode: "cors" })
         .then(res => {
           if (res.ok) {
             clearInterval(pollingRef.current);
