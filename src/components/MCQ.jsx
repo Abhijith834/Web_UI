@@ -104,9 +104,19 @@ const MCQ = () => {
   const checkAnswer = (index, correctAnswer) => {
     const selected = selectedAnswers[index];
     if (!selected) return false;
-    const trimmedSelected = selected.replace(/^[A-D]\)\s*/, "").trim();
-    return trimmedSelected === correctAnswer.trim();
+  
+    const trimmedCorrect = correctAnswer.trim();
+    const sel = selected.trim();
+  
+    // If correctAnswer is a single letter (e.g. "A"), compare the letter prefix:
+    if (trimmedCorrect.length === 1) {
+      return sel.charAt(0) === trimmedCorrect;
+    }
+  
+    // Otherwise compare the full option string:
+    return sel === trimmedCorrect;
   };
+  
 
   const handleCreateMCQMessage = () => {
     if (!sessionId || isCreating) return;

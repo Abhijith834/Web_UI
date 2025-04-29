@@ -40,7 +40,7 @@ const ChatHistory = ({ activeChat }) => {
       })
       .catch(err => {
         console.error(err);
-        setError("⚠️ Failed to load chat history.");
+        setError("   ");
         setMessages([]);
       });
   };

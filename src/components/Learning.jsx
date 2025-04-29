@@ -27,7 +27,6 @@ const Learning = ({ show, onClose, isStarted, handleStart }) => {
     e.preventDefault();
     let sessionId;
     try {
-      // 🔄 CHANGED: session-state via fallback
       const resp = await fetchWithFallback("/api/database/session-state");
       sessionId = (await resp.json()).session_id;
     } catch {
@@ -35,7 +34,6 @@ const Learning = ({ show, onClose, isStarted, handleStart }) => {
       return;
     }
 
-    // 🔄 CHANGED: send CLI message via fallback
     await fetchWithFallback("/api/cli-message", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -53,7 +51,6 @@ const Learning = ({ show, onClose, isStarted, handleStart }) => {
       attempts++;
       try {
         const url = `/api/database/file?session=${sessionId}&filepath=pdf_options.json`;
-        // 🔄 CHANGED: polling via fallback
         const fileResp = await fetchWithFallback(url);
         if (fileResp.ok) {
           const links = JSON.parse((await fileResp.json()).content);
@@ -70,14 +67,12 @@ const Learning = ({ show, onClose, isStarted, handleStart }) => {
   const handleSelect = async number => {
     let sessionId;
     try {
-      // 🔄 CHANGED: session-state via fallback
       const resp = await fetchWithFallback("/api/database/session-state");
       sessionId = (await resp.json()).session_id;
     } catch {
       console.error("Failed to fetch session state for select");
       return;
     }
-    // 🔄 CHANGED: send selection via fallback
     await fetchWithFallback("/api/cli-message", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -91,7 +86,7 @@ const Learning = ({ show, onClose, isStarted, handleStart }) => {
   };
 
   return (
-    <div className="learning-modal fixed inset-0 flex flex-col justify-between bg-black bg-opacity-50 p-4">
+    <div className="learning-modal fixed inset-0 z-50 flex flex-col justify-between bg-black bg-opacity-50 p-4">
       <div className="bg-blue-600 text-white p-4 rounded shadow-lg w-full max-w-4xl mx-auto mt-8">
         <div className="flex justify-between items-center mb-2">
           <h2 className="text-xl font-semibold">Learning Search</h2>
