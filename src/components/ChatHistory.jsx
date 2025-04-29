@@ -5,13 +5,13 @@ import speakerIcon from "../assets/speaker.svg";
 // Helper to try fetch via ngrok or localhost
 const fetchWithFallback = (endpoint, options = {}) => {
   const local = `http://localhost:5000${endpoint}`;
-  if (["localhost", "127.0.0.1"].includes(window.location.hostname)) {
+  if (["localhost","127.0.0.1"].includes(window.location.hostname)) {
     return fetch(local, options);
   }
   const ngrok = `https://mint-jackal-publicly.ngrok-free.app${endpoint}`;
   return fetch(ngrok, {
     ...options,
-    headers: { ...options.headers, "ngrok-skip-browser-warning": "true" },
+    headers: { ...options.headers, "ngrok-skip-browser-warning":"true" }
   }).catch(() => fetch(local, options));
 };
 
@@ -28,19 +28,17 @@ const ChatHistory = ({ activeChat }) => {
 
   // Fetch chat_history.json
   const fetchChatHistory = (sessionId) => {
-    fetchWithFallback(
-      `/api/database/file?session=${sessionId}&filepath=chat_history.json`
-    )
-      .then((res) => {
+    fetchWithFallback(`/api/database/file?session=${sessionId}&filepath=chat_history.json`)
+      .then(res => {
         if (!res.ok) throw new Error(res.statusText);
         return res.json();
       })
-      .then((data) => {
+      .then(data => {
         const parsed = JSON.parse(data.content);
         setMessages(parsed.chat_history || []);
         setError(null);
       })
-      .catch((err) => {
+      .catch(err => {
         console.error(err);
         setError("   ");
         setMessages([]);
@@ -60,17 +58,14 @@ const ChatHistory = ({ activeChat }) => {
   useEffect(() => {
     const id = setInterval(() => {
       fetchWithFallback("/api/database/notifications")
-        .then((res) => res.json())
-        .then((notes) => {
+        .then(res => res.json())
+        .then(notes => {
           if (!Array.isArray(notes)) return;
-          if (
-            notes.some(
-              (n) =>
-                n.event_type === "modified" &&
-                !n.is_directory &&
-                n.src_path.includes(`chat_${activeChat}\\chat_history.json`)
-            )
-          ) {
+          if (notes.some(n =>
+            n.event_type==="modified" &&
+            !n.is_directory &&
+            n.src_path.includes(`chat_${activeChat}\\chat_history.json`)
+          )) {
             fetchChatHistory(activeChat);
           }
         });
@@ -78,30 +73,25 @@ const ChatHistory = ({ activeChat }) => {
     return () => clearInterval(id);
   }, [activeChat]);
 
+  // Starts polling until the .wav appears, then plays
   const startPollingAudio = (identifier) => {
     const encoded = encodeURIComponent(identifier);
-    const base = ["localhost", "127.0.0.1"].includes(window.location.hostname)
+    // 🔄 CHANGED: dynamic base URL for TTS
+    const base = ["localhost","127.0.0.1"].includes(window.location.hostname)
       ? "http://localhost:5000"
       : "https://mint-jackal-publicly.ngrok-free.app";
     const url = `${base}/api/tts/chat_${activeChat}/${encoded}.wav`;
 
     pollingRef.current = setInterval(() => {
-      fetch(url, {
-        method: "HEAD",
-        mode: "cors",
-        headers: {
-          // 👈 pass ngrok/headless signal
-          "ngrok-skip-browser-warning": "true",
-          "User-Agent": "PocketTutor/1.0",
-        },
-      })
-        .then((res) => {
+      // 🔄 CHANGED: use fallback for HEAD check
+      fetchWithFallback(`/api/tts/chat_${activeChat}/${encoded}.wav`, { method: "HEAD" })
+        .then(res => {
           if (res.ok) {
             clearInterval(pollingRef.current);
             pollingRef.current = null;
             setLoadingTTSId(null);
 
-            const audio = new Audio(url);
+            const audio = new Audio(url);  // 🔄 CHANGED: URL comes from dynamic base
             currentAudioRef.current = { identifier, audio };
 
             audio.addEventListener("ended", () => {
@@ -112,9 +102,7 @@ const ChatHistory = ({ activeChat }) => {
             audio.play();
           }
         })
-        .catch(() => {
-          /* keep polling */
-        });
+        .catch(() => {/* keep polling */});
     }, 1000);
   };
 
@@ -123,7 +111,8 @@ const ChatHistory = ({ activeChat }) => {
     if (!activeChat) return;
     const identifier = `chat_${activeChat}#${assistantIndex}`;
     const encoded = encodeURIComponent(identifier);
-    const base = ["localhost", "127.0.0.1"].includes(window.location.hostname)
+    // 🔄 CHANGED: dynamic base URL for TTS
+    const base = ["localhost","127.0.0.1"].includes(window.location.hostname)
       ? "http://localhost:5000"
       : "https://mint-jackal-publicly.ngrok-free.app";
     const url = `${base}/api/tts/chat_${activeChat}/${encoded}.wav`;
@@ -149,16 +138,15 @@ const ChatHistory = ({ activeChat }) => {
     }
 
     // 3) HEAD-check to see if file already exists
-    fetchWithFallback(`/api/tts/chat_${activeChat}/${encoded}.wav`, {
-      method: "HEAD",
-    })
-      .then((res) => {
+    // 🔄 CHANGED: use fallback for HEAD check
+    fetchWithFallback(`/api/tts/chat_${activeChat}/${encoded}.wav`, { method: "HEAD" })
+      .then(res => {
         if (res.ok) {
           // File exists → play immediately
           setPlayingTTSId(identifier);
           setLoadingTTSId(null);
 
-          const audio = new Audio(url);
+          const audio = new Audio(url);  // 🔄 CHANGED: dynamic URL
           currentAudioRef.current = { identifier, audio };
           audio.addEventListener("ended", () => setPlayingTTSId(null));
           audio.play();
@@ -167,18 +155,17 @@ const ChatHistory = ({ activeChat }) => {
           setPlayingTTSId(identifier);
           setLoadingTTSId(identifier);
 
-          fetchWithFallback("/api/cli-message", {
-            // 🔄 CHANGED
+          fetchWithFallback("/api/cli-message", {  // 🔄 CHANGED
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
               message: `tts (${identifier})`,
               chat_session: activeChat,
-              timestamp: new Date().toISOString(),
-            }),
+              timestamp: new Date().toISOString()
+            })
           })
             .then(() => startPollingAudio(identifier))
-            .catch((err) => {
+            .catch(err => {
               console.error(err);
               setPlayingTTSId(null);
               setLoadingTTSId(null);
@@ -189,17 +176,17 @@ const ChatHistory = ({ activeChat }) => {
         // Network error on HEAD → treat as “not there yet”
         setPlayingTTSId(identifier);
         setLoadingTTSId(identifier);
-        fetchWithFallback("/api/cli-message", {
+        fetchWithFallback("/api/cli-message", {  // 🔄 CHANGED
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             message: `tts (${identifier})`,
             chat_session: activeChat,
-            timestamp: new Date().toISOString(),
-          }),
+            timestamp: new Date().toISOString()
+          })
         })
           .then(() => startPollingAudio(identifier))
-          .catch((err) => {
+          .catch(err => {
             console.error(err);
             setPlayingTTSId(null);
             setLoadingTTSId(null);
@@ -233,10 +220,7 @@ const ChatHistory = ({ activeChat }) => {
         }
 
         return (
-          <div
-            key={idx}
-            className="message-container assistant-align hover-group"
-          >
+          <div key={idx} className="message-container assistant-align hover-group">
             {prefix && <div className="message-bar-left">{prefix}</div>}
             <div className="message assistant-message">{content}</div>
             <button
